@@ -68,9 +68,8 @@ with open('Results_' + datetime.now().strftime('%Y%m%d%H%M%S') + '.csv', 'x', ne
     csvWriter = csv.writer(csvFile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
     csvWriter.writerow(['Id', 'URL_1', 'Result_1', 'URL_2', 'Result_2'])
     for row in resultList:
-        if (len(row) == 5):
-            csvWriter.writerow([row[0], row[1], row[2], row[3], row[4]])
-        elif (len(row) == 3):            
-            csvWriter.writerow([row[0], row[1], row[2]])
-        else:
-            csvWriter.writerow([row[0]])
+        csvRow = []
+        for value in row:
+            csvRow += value
+        
+        csvWriter.writerow(csvRow)
