@@ -30,8 +30,9 @@ for row in urlDict:
     resultList.append([row])
     for url in urlDict[row]:
         if (url.upper().startswith('HTTP') and (url.upper().endswith('.PDF'))):
-            local_filename = url.split('/')[-1]
+            localFilename = row + '_' + url.split('/')[-1]
             try:
+                # Acquire response from server
                 response = session.get(url, verify=False)
             except (ConnectionError, RetryError) as e:
                 print('The following file could not be downloaded (connection error): ' + url)
@@ -41,13 +42,14 @@ for row in urlDict:
                 print(response.headers['Content-Type'])
                 if (response.headers['Content-Type'] == 'application/pdf'):
                     try:
-                        with open('./PDFs/' + local_filename, 'xb') as f:
+                        # Write to PDF file
+                        with open('./PDFs/' + localFilename, 'xb') as f:
                             f.write(response.content)
                         print('Successfully downloaded: ' + url)
                         resultList[row-1] += [url, 'Succesfully downloaded.']
                         break
                     except FileExistsError:
-                        print('File already exists: ' + local_filename)
+                        print('File already exists: ' + localFilename)
                         resultList[row-1] += [url, 'Error: File already exists.']
                         break
                 else:
