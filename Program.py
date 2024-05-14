@@ -2,7 +2,6 @@ import requests
 import csv
 import datetime
 import sys
-import time
 
 from requests.exceptions import ConnectionError, RetryError
 from requests.adapters import HTTPAdapter, Retry
@@ -67,11 +66,11 @@ def writeResultsCsv():
 
             csvWriter.writerow(csvRow)
 
-def writePdfToFile(response, localFilename, url):
+def writePdfToFile(response, localFilename, url, id):
     try:
         response.headers['Content-Type']
     except KeyError:
-        print('Id: ' + row[0] + '. Response from server does not contain a \'Content-Type\' field: ' + url)
+        print('Id: ' + id + '. Response from server does not contain a \'Content-Type\' field: ' + url)
         resultList[-1] += [url, 'Error: Response from server does not contain a \'Content-Type\' field.']
         pass
     else:
@@ -81,15 +80,15 @@ def writePdfToFile(response, localFilename, url):
                 with open('./PDFs/' + localFilename, pdfWriterArg) as f:
                     f.write(response.content)
             except FileExistsError:
-                print('Id: ' + row[0] + '. File already exists: ' + localFilename)
+                print('Id: ' + id + '. File already exists: ' + localFilename)
                 resultList[-1] += [url, 'Error: File already exists.']
             else:
-                print('Id: ' + row[0] + '. File successfully downloaded: ' + url)
+                print('Id: ' + id + '. File successfully downloaded: ' + url)
                 resultList[-1] += [url, 'File successfully downloaded.']
             finally:
                 return True
         else:
-            print('Id: ' + row[0] + '. File linked to in URL is not a PDF document: ' + url)
+            print('Id: ' + id + '. File linked to in URL is not a PDF document: ' + url)
             resultList[-1] += [url, 'Error: File linked to in URL is not a PDF document.']
     return False
 
@@ -97,10 +96,12 @@ def downloadPdfs():
     for row in urlList:
         resultList.append([row[0]])
         for url in row[1]:
-            if (url.upper().startswith('HTTP') and (url.upper().endswith('.PDF'))):
+            if (url.upper().startswith('HTTP')):
                 if (url.upper().startswith('HTTP:')):
                     url = 'https:' + url[5:]
                 localFilename = str(row[0]) + '_' + url.split('/')[-1]
+                if (localFilename.upper().endswith('.PDF') == False):
+                    localFilename += '.pdf'
                 if (overwrite == False):
                     path = Path('./PDFs/' + localFilename)
                     if (path.is_file()):
@@ -116,7 +117,7 @@ def downloadPdfs():
                     resultList[-1] += [url, 'Error: File could not be downloaded (connection error).']
                     pass
                 else:
-                    if writePdfToFile(response, localFilename, url):
+                    if writePdfToFile(response, localFilename, url, row[0]):
                         break
             else:
                 print('Id: ' + row[0] + '. Hyperlink not a valid URL to a PDF document: ', end='')
