@@ -69,9 +69,9 @@ def writeResultsCsv():
 
 def writePdfToFile(response, localFilename, url):
     try:
-        print(response.headers['Content-Type'])
+        response.headers['Content-Type']
     except KeyError:
-        print('Response from server does not contain a \'Content-Type\' field: ' + url)
+        print('Id: ' + row[0] + '. Response from server does not contain a \'Content-Type\' field: ' + url)
         resultList[-1] += [url, 'Error: Response from server does not contain a \'Content-Type\' field.']
         pass
     else:
@@ -81,15 +81,15 @@ def writePdfToFile(response, localFilename, url):
                 with open('./PDFs/' + localFilename, pdfWriterArg) as f:
                     f.write(response.content)
             except FileExistsError:
-                print('File already exists: ' + localFilename)
+                print('Id: ' + row[0] + '. File already exists: ' + localFilename)
                 resultList[-1] += [url, 'Error: File already exists.']
             else:
-                print('File successfully downloaded: ' + url)
+                print('Id: ' + row[0] + '. File successfully downloaded: ' + url)
                 resultList[-1] += [url, 'File successfully downloaded.']
             finally:
                 return True
         else:
-            print('File linked to in URL is not a PDF document: ' + url)
+            print('Id: ' + row[0] + '. File linked to in URL is not a PDF document: ' + url)
             resultList[-1] += [url, 'Error: File linked to in URL is not a PDF document.']
     return False
 
@@ -104,7 +104,7 @@ def downloadPdfs():
                 if (overwrite == False):
                     path = Path('./PDFs/' + localFilename)
                     if (path.is_file()):
-                        print('File already exists: ' + localFilename)
+                        print('Id: ' + row[0] + '. File already exists: ' + localFilename)
                         resultList[-1] += [url, 'Error: File already exists.']
                         break
                 try:
@@ -112,22 +112,14 @@ def downloadPdfs():
                     print('Id: ' + row[0] + '. Sending \'GET\' request: ' + url)
                     response = session.get(url, timeout=(3.05, 120), verify=False, headers=httpHeaders)
                 except (ConnectionError, RetryError):
-                    # try:
-                    #     # Try with headers
-                    #     time.sleep(0.5)
-                    #     response = session.get(url, timeout=(3.05, 120), verify=False, headers=httpHeaders)
-                    # except (ConnectionError, RetryError):   
-                    print('The following file could not be downloaded (connection error): ' + url)
+                    print('Id: ' + row[0] + '. The following file could not be downloaded (connection error): ' + url)
                     resultList[-1] += [url, 'Error: File could not be downloaded (connection error).']
                     pass
-                    # else:
-                    #     if writePdfToFile(response, localFilename, url):
-                    #         break
                 else:
                     if writePdfToFile(response, localFilename, url):
                         break
             else:
-                print('Hyperlink not a valid URL to a PDF document: ', end='')
+                print('Id: ' + row[0] + '. Hyperlink not a valid URL to a PDF document: ', end='')
                 if (url != ''):
                     print(url)
                     resultList[-1] += [url, 'Error: Hyperlink not a valid URL to a PDF document.']
