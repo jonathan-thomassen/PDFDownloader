@@ -8,6 +8,7 @@ from datetime import datetime
 
 urlDict = {}
 resultList = []
+resultsCsvName = 'Results_' + datetime.now().strftime('%Y%m%d%H%M%S') + '.csv'
 
 with open("GRI_2017_2020.csv", newline="", errors="ignore") as csvFile:
     csvReader = csv.DictReader(csvFile, delimiter=",")
@@ -22,15 +23,25 @@ session = requests.Session()
 # session.mount('http://', HTTPAdapter(max_retries=retries))
 # session.mount('https://', HTTPAdapter(max_retries=retries))
 
-n = 0
+def writeResultsCsv():
+    with open(resultsCsvName, 'w', newline='') as csvFile:
+        csvWriter = csv.writer(csvFile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        csvWriter.writerow(['Id', 'URL_1', 'Result_1', 'URL_2', 'Result_2'])
+        for row in resultList:
+            while (len(row) < 5):
+                row.append('')
+
+            csvRow = []
+            for value in row:
+                csvRow.append(value)
+
+            csvWriter.writerow(csvRow)
+
 for row in urlDict:
-    """ if (n > 5):
-        break
-    n += 1 """
     resultList.append([row])
     for url in urlDict[row]:
         if (url.upper().startswith('HTTP') and (url.upper().endswith('.PDF'))):
-            localFilename = row + '_' + url.split('/')[-1]
+            localFilename = str(row) + '_' + url.split('/')[-1]
             try:
                 # Acquire response from server
                 response = session.get(url, verify=False)
@@ -63,15 +74,4 @@ for row in urlDict:
             else:
                 print('(blank)')
                 resultList[row-1] += [url, 'Error: URL blank.']
-
-print(resultList)
-
-with open('Results_' + datetime.now().strftime('%Y%m%d%H%M%S') + '.csv', 'x', newline='') as csvFile:
-    csvWriter = csv.writer(csvFile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-    csvWriter.writerow(['Id', 'URL_1', 'Result_1', 'URL_2', 'Result_2'])
-    for row in resultList:
-        csvRow = []
-        for value in row:
-            csvRow += value
-        
-        csvWriter.writerow(csvRow)
+    writeResultsCsv()
