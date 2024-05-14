@@ -2,20 +2,24 @@ import requests
 import csv
 import datetime
 import sys
+import time
 
 from requests.exceptions import ConnectionError, RetryError
 from requests.adapters import HTTPAdapter, Retry
 from datetime import datetime
 from ssl import SSLCertVerificationError
+from pathlib import Path
 
 argument = ''
 pdfWriterArg = 'xb'
+overwrite = False
 
 if (len(sys.argv) > 1):
     argument = sys.argv[1]
     if (argument == '-r'):
         print('Reset requested. Downloader will overwrite old files.')
         pdfWriterArg = 'wb'
+        overwrite = True
 
 urlList = []
 resultList = []
@@ -97,20 +101,28 @@ def downloadPdfs():
                 if (url.upper().startswith('HTTP:')):
                     url = 'https:' + url[5:]
                 localFilename = str(row[0]) + '_' + url.split('/')[-1]
+                if (overwrite == False):
+                    path = Path('./PDFs/' + localFilename)
+                    if (path.is_file()):
+                        print('File already exists: ' + localFilename)
+                        resultList[-1] += [url, 'Error: File already exists.']
+                        break
                 try:
                     # Acquire response from server
-                    response = session.get(url, timeout=(3.05, 27), verify=False)
+                    print('Id: ' + row[0] + '. Sending \'GET\' request: ' + url)
+                    response = session.get(url, timeout=(3.05, 120), verify=False, headers=httpHeaders)
                 except (ConnectionError, RetryError):
-                    try:
-                        # Try with headers
-                        response = session.get(url, timeout=(3.05, 27), verify=False, headers=httpHeaders)
-                    except (ConnectionError, RetryError):   
-                        print('The following file could not be downloaded (connection error): ' + url)
-                        resultList[-1] += [url, 'Error: File could not be downloaded (connection error).']
-                        pass
-                    else:
-                        if writePdfToFile(response, localFilename, url):
-                            break
+                    # try:
+                    #     # Try with headers
+                    #     time.sleep(0.5)
+                    #     response = session.get(url, timeout=(3.05, 120), verify=False, headers=httpHeaders)
+                    # except (ConnectionError, RetryError):   
+                    print('The following file could not be downloaded (connection error): ' + url)
+                    resultList[-1] += [url, 'Error: File could not be downloaded (connection error).']
+                    pass
+                    # else:
+                    #     if writePdfToFile(response, localFilename, url):
+                    #         break
                 else:
                     if writePdfToFile(response, localFilename, url):
                         break
