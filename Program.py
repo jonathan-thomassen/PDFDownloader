@@ -35,9 +35,9 @@ with open("GRI_2017_2020.csv", newline="", errors="ignore") as csvFile:
         n += 1
 
 session = requests.Session()
-# retries = Retry(total=10, backoff_factor=0.1)
-# session.mount('http://', HTTPAdapter(max_retries=retries))
-# session.mount('https://', HTTPAdapter(max_retries=retries))
+retries = Retry(total=5, backoff_factor=0.1)
+session.mount('http://', HTTPAdapter(max_retries=retries))
+session.mount('https://', HTTPAdapter(max_retries=retries))
 
 httpHeaders = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -63,6 +63,32 @@ def writeResultsCsv():
 
             csvWriter.writerow(csvRow)
 
+def writePdfToFile(response, localFilename, url):
+    try:
+        print(response.headers['Content-Type'])
+    except KeyError:
+        print('Response from server does not contain a \'Content-Type\' field: ' + url)
+        resultList[-1] += [url, 'Error: Response from server does not contain a \'Content-Type\' field.']
+        pass
+    else:
+        if (response.headers['Content-Type'] == 'application/pdf'):
+            try:
+                # Write to PDF file
+                with open('./PDFs/' + localFilename, pdfWriterArg) as f:
+                    f.write(response.content)
+            except FileExistsError:
+                print('File already exists: ' + localFilename)
+                resultList[-1] += [url, 'Error: File already exists.']
+            else:
+                print('File successfully downloaded: ' + url)
+                resultList[-1] += [url, 'File successfully downloaded.']
+            finally:
+                return True
+        else:
+            print('File linked to in URL is not a PDF document: ' + url)
+            resultList[-1] += [url, 'Error: File linked to in URL is not a PDF document.']
+    return False
+
 def downloadPdfs():
     for row in urlList:
         resultList.append([row[0]])
@@ -73,63 +99,21 @@ def downloadPdfs():
                 localFilename = str(row[0]) + '_' + url.split('/')[-1]
                 try:
                     # Acquire response from server
-                    response = session.get(url)
+                    response = session.get(url, timeout=(3.05, 27), verify=False)
                 except (ConnectionError, RetryError):
                     try:
                         # Try with headers
-                        response = session.get(url, headers=httpHeaders)
+                        response = session.get(url, timeout=(3.05, 27), verify=False, headers=httpHeaders)
                     except (ConnectionError, RetryError):   
                         print('The following file could not be downloaded (connection error): ' + url)
                         resultList[-1] += [url, 'Error: File could not be downloaded (connection error).']
                         pass
                     else:
-                        try:
-                            print(response.headers['Content-Type'])
-                        except KeyError:
-                            print('Response from server does not contain a \'Content-Type\' field: ' + url)
-                            resultList[-1] += [url, 'Error: Response from server does not contain a \'Content-Type\' field.']
-                            pass
-                        else:
-                            if (response.headers['Content-Type'] == 'application/pdf'):
-                                try:
-                                    # Write to PDF file
-                                    with open('./PDFs/' + localFilename, pdfWriterArg) as f:
-                                        f.write(response.content)
-                                except FileExistsError:
-                                    print('File already exists: ' + localFilename)
-                                    resultList[-1] += [url, 'Error: File already exists.']
-                                    break
-                                else:
-                                    print('File successfully downloaded: ' + url)
-                                    resultList[-1] += [url, 'File successfully downloaded.']
-                                    break
-                            else:
-                                print('File linked to in URL is not a PDF document: ' + url)
-                                resultList[-1] += [url, 'Error: File linked to in URL is not a PDF document.']
+                        if writePdfToFile(response, localFilename, url):
+                            break
                 else:
-                    try:
-                        print(response.headers['Content-Type'])
-                    except KeyError:
-                        print('Response from server does not contain a \'Content-Type\' field: ' + url)
-                        resultList[-1] += [url, 'Error: Response from server does not contain a \'Content-Type\' field.']
-                        pass
-                    else:
-                        if (response.headers['Content-Type'] == 'application/pdf'):
-                            try:
-                                # Write to PDF file
-                                with open('./PDFs/' + localFilename, pdfWriterArg) as f:
-                                    f.write(response.content)
-                            except FileExistsError:
-                                print('File already exists: ' + localFilename)
-                                resultList[-1] += [url, 'Error: File already exists.']
-                                break
-                            else:
-                                print('File successfully downloaded: ' + url)
-                                resultList[-1] += [url, 'File successfully downloaded.']
-                                break
-                        else:
-                            print('File linked to in URL is not a PDF document: ' + url)
-                            resultList[-1] += [url, 'Error: File linked to in URL is not a PDF document.']
+                    if writePdfToFile(response, localFilename, url):
+                        break
             else:
                 print('Hyperlink not a valid URL to a PDF document: ', end='')
                 if (url != ''):
