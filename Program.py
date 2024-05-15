@@ -16,8 +16,10 @@ from ResultEntry import ResultEntry
 
 urlListCsvPath = './GRI_2017_2020.csv'
 md5ListCsvPath = './GRI_2017_2020_MD5_20220515.csv'
+pdfFolder = './PDFs/'
 pdfWriterArg = 'xb'
 overwrite = False
+runValidation = False
 
 urlList = []
 resultList = []
@@ -41,10 +43,14 @@ httpHeaders = {
 
 if (len(sys.argv) > 1):
     argument = sys.argv[1]
-    if (argument != None and argument == '-o'):
-        print('Overwrite flag set. Downloader will overwrite old files.')
-        pdfWriterArg = 'wb'
-        overwrite = True
+    if (argument != None):
+        if (argument == '-o'):
+            print('Overwrite flag set. Downloader will overwrite old files.')
+            pdfWriterArg = 'wb'
+            overwrite = True
+        elif (argument == '-v'):
+            print('Validation flag set. Running validation.')
+            runValidation = True
 
 def readUrlListCsv(filePath, delimiter, quotechar) :
     with open(filePath, newline="", errors="ignore") as csvFile:
@@ -76,7 +82,7 @@ def writeResultsCsv():
 
 def writePdfToFile(content, localFilename, url, id):
     try:
-        with open('./PDFs/' + localFilename, pdfWriterArg) as f:
+        with open(pdfFolder + localFilename, pdfWriterArg) as f:
             f.write(content)
     except FileExistsError:
         print('Id: ' + id + '. File already exists: ' + localFilename)
@@ -86,7 +92,7 @@ def writePdfToFile(content, localFilename, url, id):
         resultList[-1].AddResult(url, 'File successfully downloaded.')
 
 def doesFileExists(localFilename):
-    path = Path('./PDFs/' + localFilename)
+    path = Path(pdfFolder + localFilename)
     if (path.is_file()):
         return True
     return False
@@ -142,8 +148,8 @@ def downloadPdfs():
                     resultList[-1].AddResult(url, 'Error: URL blank.')
         writeResultsCsv()
 
-def validateResults(filePath, delimiter, quotechar):
-    with open(filePath, newline="") as csvFile:
+def validateResults(csvFilePath, pdfFolder, delimiter, quotechar):
+    with open(csvFilePath, newline="") as csvFile:
         csvReader = csv.reader(csvFile, delimiter=delimiter, quotechar=quotechar)
         md5Dict = {}
         n = 0
@@ -152,7 +158,7 @@ def validateResults(filePath, delimiter, quotechar):
                 md5Dict.update({row[0]: row[1]})
             n = 1
 
-    path = pathlib.Path('./ActualPDFs/')    
+    path = pathlib.Path(pdfFolder)    
     files = [f for f in path.iterdir() if f.is_file()]
 
     valSuccess = 0
@@ -160,18 +166,36 @@ def validateResults(filePath, delimiter, quotechar):
 
     for file in files:
         if (file.suffix.upper() == '.PDF'):
-            id = file.name.split('_')[0]
-            with open('./ActualPDFs/' + file.name, 'rb') as pdf:
-                md5hash = hashlib.md5(pdf.read()).hexdigest()
-                if (md5hash == md5Dict[id].lower()):
-                    print('Id: ' + id + '. Successful validation.')
-                    valSuccess += 1
-                else:
-                    print('Id: ' + id + '. Validation failed. MD5 hash mismatch.')
+            if ('_' in file.name):
+                id = file.name.split('_')[0]
+                try:
+                    int(id)
+                except ValueError:
+                    print('File: \'' + file.name + '\' does not contain a valid Id and cannot be validated.')
                     valFailed += 1
+                    pass                    
+                else:
+                    with open(pdfFolder + file.name, 'rb') as pdf:
+                        md5hash = hashlib.md5(pdf.read()).hexdigest()
+                        try:
+                            if (md5hash == md5Dict[id].lower()):
+                                print('Id: ' + id + '. Successful validation.')
+                                valSuccess += 1
+                            else:
+                                print('Id: ' + id + '. Validation failed. MD5 hash mismatch.')
+                                valFailed += 1
+                        except (KeyError):
+                            print('Id: ' + id + ' does not exist in database and cannot be validated.')
+                            valFailed += 1
+                            pass
+            else:
+                print('File: \'' + file.name + '\' does not contain a valid Id and cannot be validated.')
+                valFailed += 1
     
-    print('Validation results: ' + str(valSuccess) + ' files succeeded. ' + str(valFailed) + ' files failed.')
+    print('Validation results: ' + str(valSuccess) + ' file(s) succeeded. ' + str(valFailed) + ' file(s) failed.')
 
-readUrlListCsv(urlListCsvPath, ',', '\"')
-downloadPdfs()
-validateResults(md5ListCsvPath,',', '\"')
+if (runValidation):
+    validateResults(md5ListCsvPath, pdfFolder, ',', '\"')
+else:
+    readUrlListCsv(urlListCsvPath, ',', '\"')
+    downloadPdfs()
