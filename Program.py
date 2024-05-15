@@ -105,7 +105,12 @@ def downloadPdfs():
             if (url.upper().startswith('HTTP')):
                 if (url.upper().startswith('HTTP:')):
                     url = 'https:' + url[5:]
-                localFilename = str(urlEntry.id) + '_' + url.split('/')[-1]
+
+                idString = str(urlEntry.id)
+                while (len(idString) < 4):
+                    idString = '0' + idString   
+
+                localFilename = idString + '_' + url.split('/')[-1]
                 if (localFilename.upper().endswith('.PDF') == False):
                     localFilename += '.pdf'
                 if (overwrite == False):
@@ -135,7 +140,6 @@ def downloadPdfs():
                             if (sys.getsizeof(content) > 33):
                                 writePdfToFile(content, localFilename, url, urlEntry.id)
                                 break
-                        print(response.content)
                         print('Id: ' + urlEntry.id + '. File linked to in URL is not a PDF document: ' + url)
                         resultList[-1].AddResult(url, 'Error: File linked to in URL is not a PDF document.')                   
             else:
@@ -171,7 +175,7 @@ def validateResults(csvFilePath, pdfFolder, delimiter, quotechar):
                 try:
                     int(id)
                 except ValueError:
-                    print('File: \'' + file.name + '\' does not contain a valid Id and cannot be validated.')
+                    print('File: \'' + file.name + '\' does not contain a valid ID and cannot be validated.')
                     valFailed += 1
                     pass                    
                 else:
@@ -189,7 +193,7 @@ def validateResults(csvFilePath, pdfFolder, delimiter, quotechar):
                             valFailed += 1
                             pass
             else:
-                print('File: \'' + file.name + '\' does not contain a valid Id and cannot be validated.')
+                print('File: \'' + file.name + '\' does not contain a valid ID and cannot be validated.')
                 valFailed += 1
     
     print('Validation results: ' + str(valSuccess) + ' file(s) succeeded. ' + str(valFailed) + ' file(s) failed.')
