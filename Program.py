@@ -89,48 +89,48 @@ def doesFileExists(localFilename):
     return False
 
 def downloadPdfs():
-    for row in urlList:
-        resultList.append(ResultEntry(row.id))
-        for url in row.urls:
+    for urlEntry in urlList:
+        resultList.append(ResultEntry(urlEntry.id))
+        for url in urlEntry.urls:
             # TODO: Eventuelt lav check om til funktion
             if (url.upper().startswith('HTTP')):
                 if (url.upper().startswith('HTTP:')):
                     url = 'https:' + url[5:]
-                localFilename = str(row.id) + '_' + url.split('/')[-1]
+                localFilename = str(urlEntry.id) + '_' + url.split('/')[-1]
                 if (localFilename.upper().endswith('.PDF') == False):
                     localFilename += '.pdf'
                 if (overwrite == False):
                     if (doesFileExists(localFilename)):
-                        print('Id: ' + row.id + '. File already exists: ' + localFilename)
+                        print('Id: ' + urlEntry.id + '. File already exists: ' + localFilename)
                         resultList[-1].AddResult(url, 'Error: File already exists.')
                         break
                 try:
                     # Acquire response from server
-                    print('Id: ' + row.id + '. Sending \'GET\' request: ' + url)
+                    print('Id: ' + urlEntry.id + '. Sending \'GET\' request: ' + url)
                     # TODO: Prøv at lege med timeout værdier
                     response = session.get(url, timeout=(6.05, 120), verify=False, headers=httpHeaders)
                 # TODO: Læs op på session og ConnectionError
                 except (ConnectionError, RetryError):
-                    print('Id: ' + row.id + '. The following file could not be downloaded (connection error): ' + url)
+                    print('Id: ' + urlEntry.id + '. The following file could not be downloaded (connection error): ' + url)
                     resultList[-1].AddResult(url, 'Error: File could not be downloaded (connection error).')
                     pass
                 else:
                     try:
                         contentType = response.headers['Content-Type']
                     except KeyError:
-                        print('Id: ' + row.id + '. Response from server does not contain a \'Content-Type\' field: ' + url)
+                        print('Id: ' + urlEntry.id + '. Response from server does not contain a \'Content-Type\' field: ' + url)
                         resultList[-1].AddResult(url, 'Error: Response from server does not contain a \'Content-Type\' field.')
                         pass
                     else:
-                        if (contentType == 'application/pdf'):
+                        if ('application/pdf' in contentType):
                             content = response.content
                             if (sys.getsizeof(content) > 0):
-                                writePdfToFile(content, localFilename, url, row.id)
+                                writePdfToFile(content, localFilename, url, urlEntry.id)
                                 break
-                        print('Id: ' + row.id + '. File linked to in URL is not a PDF document: ' + url)
+                        print('Id: ' + urlEntry.id + '. File linked to in URL is not a PDF document: ' + url)
                         resultList[-1].AddResult(url, 'Error: File linked to in URL is not a PDF document.')                   
             else:
-                print('Id: ' + row.id + '. Hyperlink not a valid URL to a PDF document: ', end='')
+                print('Id: ' + urlEntry.id + '. Hyperlink not a valid URL to a PDF document: ', end='')
                 if (url != ''):
                     print(url)
                     resultList[-1].AddResult(url, 'Error: Hyperlink not a valid URL to a PDF document.')
@@ -139,5 +139,5 @@ def downloadPdfs():
                     resultList[-1].AddResult(url, 'Error: URL blank.')
         writeResultsCsv()
 
-readUrlListCsv(urlListCsvPath, ',', '|')
+readUrlListCsv(urlListCsvPath, ',', '\"')
 downloadPdfs()
