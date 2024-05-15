@@ -8,9 +8,11 @@ from requests.adapters import HTTPAdapter, Retry
 from datetime import datetime
 from ssl import SSLCertVerificationError
 from pathlib import Path
+from UrlEntry import UrlEntry
+from ResultEntry import ResultEntry
 
 # Currently missing: 69
-# TODO: 104 is erronously downloaded. Lav klasser af listerne. 
+# TODO: Lav klasser af listerne. 
 
 urlListCsvPath = './GRI_2017_2020.csv'
 pdfWriterArg = 'xb'
@@ -47,91 +49,94 @@ def readUrlListCsv(filePath, delimiter, quotechar) :
         n = 0
         for row in csvReader:
             if (n > 0):
-                urlList.append([row[0]])
-                urlAB = []
+                urlList.append(UrlEntry(row[0]))
                 for element in row[1:]:
-                    urlAB.append(element)
-
-                urlList[-1].append(urlAB)
+                    urlList[-1].AddUrl(element)
             n += 1
 
 def writeResultsCsv():
     with open(resultsCsvName, 'w', newline='') as csvFile:
         csvWriter = csv.writer(csvFile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
         csvWriter.writerow(['Id', 'URL_1', 'Result_1', 'URL_2', 'Result_2'])
-        for row in resultList:
-            while (len(row) < 5):
-                row.append('')
-
+        for resultEntry in resultList:
             csvRow = []
-            for value in row:
-                csvRow.append(value)
+            csvRow.append(resultEntry.id)
+
+            for url, result in resultEntry.results.items():
+                csvRow.append(url)
+                csvRow.append(result)
+
+            while (len(csvRow) < 5):
+                csvRow.append('')
 
             csvWriter.writerow(csvRow)
 
 def writePdfToFile(content, localFilename, url, id):
     try:
-        # Write to PDF file
         with open('./PDFs/' + localFilename, pdfWriterArg) as f:
             f.write(content)
     except FileExistsError:
         print('Id: ' + id + '. File already exists: ' + localFilename)
-        resultList[-1] += [url, 'Error: File already exists.']
+        resultList[-1].AddResult(url, 'Error: File already exists.')
     else:
         print('Id: ' + id + '. File successfully downloaded: ' + url)
-        resultList[-1] += [url, 'File successfully downloaded.']
+        resultList[-1].AddResult(url, 'File successfully downloaded.')
+
+def doesFileExists(localFilename):
+    path = Path('./PDFs/' + localFilename)
+    if (path.is_file()):
+        return True
+    return False
 
 def downloadPdfs():
     for row in urlList:
-        resultList.append([row[0]])
-        for url in row[1]:
+        resultList.append(ResultEntry(row.id))
+        for url in row.urls:
             # TODO: Eventuelt lav check om til funktion
             if (url.upper().startswith('HTTP')):
                 if (url.upper().startswith('HTTP:')):
                     url = 'https:' + url[5:]
-                localFilename = str(row[0]) + '_' + url.split('/')[-1]
+                localFilename = str(row.id) + '_' + url.split('/')[-1]
                 if (localFilename.upper().endswith('.PDF') == False):
                     localFilename += '.pdf'
                 if (overwrite == False):
-                    # TODO: Lav til funktion
-                    path = Path('./PDFs/' + localFilename)
-                    if (path.is_file()):
-                        print('Id: ' + row[0] + '. File already exists: ' + localFilename)
-                        resultList[-1] += [url, 'Error: File already exists.']
+                    if (doesFileExists(localFilename)):
+                        print('Id: ' + row.id + '. File already exists: ' + localFilename)
+                        resultList[-1].AddResult(url, 'Error: File already exists.')
                         break
                 try:
                     # Acquire response from server
-                    print('Id: ' + row[0] + '. Sending \'GET\' request: ' + url)
+                    print('Id: ' + row.id + '. Sending \'GET\' request: ' + url)
                     # TODO: Prøv at lege med timeout værdier
                     response = session.get(url, timeout=(6.05, 120), verify=False, headers=httpHeaders)
                 # TODO: Læs op på session og ConnectionError
                 except (ConnectionError, RetryError):
-                    print('Id: ' + row[0] + '. The following file could not be downloaded (connection error): ' + url)
-                    resultList[-1] += [url, 'Error: File could not be downloaded (connection error).']
+                    print('Id: ' + row.id + '. The following file could not be downloaded (connection error): ' + url)
+                    resultList[-1].AddResult(url, 'Error: File could not be downloaded (connection error).')
                     pass
                 else:
                     try:
                         contentType = response.headers['Content-Type']
                     except KeyError:
-                        print('Id: ' + row[0] + '. Response from server does not contain a \'Content-Type\' field: ' + url)
-                        resultList[-1] += [url, 'Error: Response from server does not contain a \'Content-Type\' field.']
+                        print('Id: ' + row.id + '. Response from server does not contain a \'Content-Type\' field: ' + url)
+                        resultList[-1].AddResult(url, 'Error: Response from server does not contain a \'Content-Type\' field.')
                         pass
                     else:
                         if (contentType == 'application/pdf'):
                             content = response.content
                             if (sys.getsizeof(content) > 0):
-                                writePdfToFile(content, localFilename, url, row[0])
+                                writePdfToFile(content, localFilename, url, row.id)
                                 break
-                        print('Id: ' + row[0] + '. File linked to in URL is not a PDF document: ' + url)
-                        resultList[-1] += [url, 'Error: File linked to in URL is not a PDF document.']                    
+                        print('Id: ' + row.id + '. File linked to in URL is not a PDF document: ' + url)
+                        resultList[-1].AddResult(url, 'Error: File linked to in URL is not a PDF document.')                   
             else:
-                print('Id: ' + row[0] + '. Hyperlink not a valid URL to a PDF document: ', end='')
+                print('Id: ' + row.id + '. Hyperlink not a valid URL to a PDF document: ', end='')
                 if (url != ''):
                     print(url)
-                    resultList[-1] += [url, 'Error: Hyperlink not a valid URL to a PDF document.']
+                    resultList[-1].AddResult(url, 'Error: Hyperlink not a valid URL to a PDF document.')
                 else:
                     print('(blank)')
-                    resultList[-1] += [url, 'Error: URL blank.']
+                    resultList[-1].AddResult(url, 'Error: URL blank.')
         writeResultsCsv()
 
 readUrlListCsv(urlListCsvPath, ',', '|')

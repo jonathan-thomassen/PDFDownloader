@@ -1,3 +1,4 @@
 /.venv
 /PDFs
 /*.csv
+/__*
