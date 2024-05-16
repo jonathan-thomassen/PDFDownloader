@@ -13,8 +13,6 @@ from requests.exceptions import RetryError
 from requests.adapters import HTTPAdapter, Retry
 from datetime import datetime
 from pathlib import Path
-from url_entry import UrlEntry
-from result_entry import ResultEntry
 
 # TODO: Multi-threading, unit tests, being able to choose csv file,
 #       progress bars, more verbosity when establishing connection
@@ -63,6 +61,22 @@ if len(sys.argv) > 1:
     elif argument == '-v':
       print('Validation flag set. Running validation.')
       RUN_VALIDATION = True
+
+class UrlEntry:
+  def __init__(self, pdf_id):
+    self.pdf_id = pdf_id
+    self.urls = []
+
+  def AddUrl(self, url):
+    self.urls.append(url)
+
+class ResultEntry:
+  def __init__(self, pdf_id):
+    self.pdf_id = pdf_id
+    self.results = {}
+
+  def AddResult(self, url, result):
+    self.results.update({url: result})
 
 def read_url_csv(file_path, delimiter, quotechar):
   with open(file_path, newline='', errors='ignore', encoding='utf-8')\
