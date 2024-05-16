@@ -1,5 +1,7 @@
 /.venv
+/.vscode
 /PDFs
-/ActualPDFs
+/PDFTestFolder
+/pylintrc
 /*.csv
 /__*
