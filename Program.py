@@ -4,6 +4,7 @@ import datetime
 import sys
 import hashlib
 import pathlib
+import re
 
 from requests.exceptions import ConnectionError, RetryError
 from requests.adapters import HTTPAdapter, Retry
@@ -12,11 +13,13 @@ from pathlib import Path
 from UrlEntry import UrlEntry
 from ResultEntry import ResultEntry
 
+# TODO: Multi-threading, unit tests, being able to choose csv file, progress bars, more verbosity when establishing connection
+
 # Currently missing: 128: Sends to script which redirects to PDF? Maybe Google Chrome magic is what makes it work?
 
 urlListCsvPath = './GRI_2017_2020.csv'
 md5ListCsvPath = './GRI_2017_2020_MD5_20220515.csv'
-pdfFolder = './PDFs/'
+pdfFolder = './ActualPDFs/'
 pdfWriterArg = 'xb'
 overwrite = False
 runValidation = False
@@ -168,37 +171,34 @@ def validateResults(csvFilePath, pdfFolder, delimiter, quotechar):
     valSuccess = 0
     valFailed = 0
 
+    for id, hash in md5Dict.items():
+        idString = str(id)
+        while (len(idString) < 4):
+            idString = '0' + idString
+        filesToBeRemoved = []
+        for file in files:
+            regexString = r'\b' + idString +  r'[^/]*\.pdf$'
+            if re.match(regexString, file.name):
+                with open(pdfFolder + file.name, 'rb') as pdf:
+                    md5hash = hashlib.md5(pdf.read()).hexdigest()
+                    if (md5hash == hash.lower()):
+                        print('Id: ' + id + '. File: \'' + file.name + '\' Successful validation.')
+                        valSuccess += 1
+                    else:
+                        print('Id: ' + id + '. File: \'' + file.name + '\' Validation failed. MD5 hash mismatch.')
+                        valFailed += 1
+                filesToBeRemoved.append(file)
+        for file in filesToBeRemoved:
+            files.remove(file)
+
     for file in files:
         if (file.suffix.upper() == '.PDF'):
-            if ('_' in file.name):
-                id = file.name.split('_')[0]
-                try:
-                    int(id)
-                except ValueError:
-                    print('File: \'' + file.name + '\' does not contain a valid ID and cannot be validated.')
-                    valFailed += 1
-                    pass                    
-                else:
-                    with open(pdfFolder + file.name, 'rb') as pdf:
-                        md5hash = hashlib.md5(pdf.read()).hexdigest()
-                        try:
-                            if (md5hash == md5Dict[id].lower()):
-                                print('Id: ' + id + '. Successful validation.')
-                                valSuccess += 1
-                            else:
-                                print('Id: ' + id + '. Validation failed. MD5 hash mismatch.')
-                                valFailed += 1
-                        except (KeyError):
-                            print('Id: ' + id + ' does not exist in database and cannot be validated.')
-                            valFailed += 1
-                            pass
-            else:
-                print('File: \'' + file.name + '\' does not contain a valid ID and cannot be validated.')
-                valFailed += 1
+            print('File: \'' + file.name + '\' does not exist in validation database.')
+            valFailed += 1
     
     print('Validation results: ' + str(valSuccess) + ' file(s) succeeded. ' + str(valFailed) + ' file(s) failed.')
 
-if (runValidation):
+if (True):
     validateResults(md5ListCsvPath, pdfFolder, ',', '\"')
 else:
     readUrlListCsv(urlListCsvPath, ',', '\"')
