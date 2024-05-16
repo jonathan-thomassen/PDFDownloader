@@ -19,7 +19,7 @@ from ResultEntry import ResultEntry
 
 urlListCsvPath = './GRI_2017_2020.csv'
 md5ListCsvPath = './GRI_2017_2020_MD5_20220515.csv'
-pdfFolder = './ActualPDFs/'
+pdfFolder = './PDFs/'
 pdfWriterArg = 'xb'
 overwrite = False
 runValidation = False
@@ -198,7 +198,7 @@ def validateResults(csvFilePath, pdfFolder, delimiter, quotechar):
     
     print('Validation results: ' + str(valSuccess) + ' file(s) succeeded. ' + str(valFailed) + ' file(s) failed.')
 
-if (True):
+if (runValidation):
     validateResults(md5ListCsvPath, pdfFolder, ',', '\"')
 else:
     readUrlListCsv(urlListCsvPath, ',', '\"')
