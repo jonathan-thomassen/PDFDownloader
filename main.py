@@ -1,6 +1,6 @@
-'''Module providing PDF scraperfunctionality.'''
+'''Module providing PDF scraper functionality.'''
 
-import requests
+import grequests
 import csv
 import datetime
 import sys
@@ -8,13 +8,13 @@ import hashlib
 import pathlib
 import re
 
-from requests.exceptions import ConnectionError as RequestConnectionError
-from requests.exceptions import RetryError
+# from requests.exceptions import ConnectionError as RequestConnectionError
+# from requests.exceptions import RetryError
 from requests.adapters import HTTPAdapter, Retry
 from datetime import datetime
 from pathlib import Path
 
-# TODO: Multi-threading, unit tests, being able to choose csv file,
+# TODO: Multi-threading, unit tests, being able to choose csv files,
 #       progress bars, more verbosity when establishing connection
 
 # Currently missing: 128: Sends to script which redirects to PDF?
@@ -29,9 +29,10 @@ RUN_VALIDATION = False
 
 url_list = []
 result_list = []
+async_list = []
 
 results_csv_name = 'Results_' + datetime.now().strftime('%Y%m%d%H%M%S') + '.csv'
-session = requests.Session()
+session = grequests.Session()
 retries = Retry(total=5, backoff_factor=0.1)
 session.mount('http://', HTTPAdapter(max_retries=retries))
 session.mount('https://', HTTPAdapter(max_retries=retries))
@@ -53,7 +54,7 @@ http_headers = {
 
 if len(sys.argv) > 1:
   argument = sys.argv[1]
-  if argument is not None:
+  if argument:
     if argument == '-o':
       print('Overwrite flag set. Downloader will overwrite old files.')
       PDF_WRITER_ARG = 'wb'
@@ -97,7 +98,7 @@ def write_results_csv():
     csv_writer.writerow(['Id', 'URL_1', 'Result_1', 'URL_2', 'Result_2'])
     for result_entry in result_list:
       csv_row = []
-      csv_row.append(result_entry.id)
+      csv_row.append(result_entry.pdf_id)
 
       for url, result in result_entry.results.items():
         csv_row.append(url)
@@ -108,15 +109,15 @@ def write_results_csv():
 
       csv_writer.writerow(csv_row)
 
-def write_pdf_to_file(content, local_filename, url, url_id):
+def write_pdf_to_file(content, filename, url, pdf_id):
   try:
-    with open(PDF_FOLDER + local_filename, PDF_WRITER_ARG) as f:
+    with open(PDF_FOLDER + filename, PDF_WRITER_ARG) as f:
       f.write(content)
   except FileExistsError:
-    print('Id: ' + url_id + '. File already exists: ' + local_filename)
+    print('Id: ' + pdf_id + '. File already exists: ' + filename)
     result_list[-1].AddResult(url, 'Error: File already exists.')
   else:
-    print('Id: ' + url_id + '. File successfully downloaded: ' + url)
+    print('Id: ' + pdf_id + '. File successfully downloaded: ' + url)
     result_list[-1].AddResult(url, 'File successfully downloaded.')
 
 def does_file_exist(local_filename):
@@ -127,68 +128,76 @@ def does_file_exist(local_filename):
 
 def download_pdfs():
   for url_entry in url_list:
-    result_list.append(ResultEntry(url_entry.id))
+    result_list.append(ResultEntry(url_entry.pdf_id))
     for url in url_entry.urls:
       # TODO: Eventuelt lav check om til funktion
       if url.upper().startswith('HTTP'):
         if url.upper().startswith('HTTP:'):
           url = 'https:' + url[5:]
 
-        id_string = str(url_entry.id)
+        id_string = str(url_entry.pdf_id)
         while len(id_string) < 4:
           id_string = '0' + id_string
 
         local_filename = id_string + '_' + url.split('/')[-1]
-        if local_filename.upper().endswith('.PDF') is False:
+        if not local_filename.upper().endswith('.PDF'):
           local_filename += '.pdf'
-        if overwrite is False:
+        if not overwrite:
           if does_file_exist(local_filename):
-            print('Id: ' + url_entry.id + '. File already exists: '
+            print('Id: ' + url_entry.pdf_id + '. File already exists: '
                   + local_filename)
             result_list[-1].AddResult(url, 'Error: File already exists.')
             break
-        try:
-          # Acquire response from server
-          print('Id: ' + url_entry.id + '. Sending \'GET\' request: ' + url)
-          response = session.get(url, timeout=(6.05, 120),
-                                 verify=False, headers=http_headers)
-        # TODO: Læs op på session og ConnectionError
-        except (RequestConnectionError, RetryError):
-          print('Id: ' + url_entry.id + '. Connection error while trying to ' +
-                'download the following file: ' + url)
-          result_list[-1].AddResult(url, 'Error: File could not be ' +
-                                   'downloaded (connection error).')
-          pass
-        else:
-          try:
-            content_type = response.headers['Content-Type']
-          except KeyError:
-            print('Id: ' + url_entry.id + '. Response from server does not ' +
-                  'contain a \'Content-Type\' field: ' + url)
-            result_list[-1].AddResult(url, 'Error: Response from server does ' +
-                                     'not contain a \'Content-Type\' field.')
-            pass
-          else:
-            if 'application/pdf' in content_type:
-              content = response.content
-              if sys.getsizeof(content) > 33:
-                write_pdf_to_file(content, local_filename, url, url_entry.id)
-                break
-            print('Id: ' + url_entry.id + '. File linked to in URL is not ' +
-                  'a PDF document: ' + url)
-            result_list[-1].AddResult(url, 'Error: File linked to in URL is ' +
-                                     'not a PDF document.')
+          # Create request action and add to list
+          print('Id: ' + url_entry.pdf_id + '. Sending \'GET\' request: ' + url)
+          action_item = grequests.get(url, timeout=(6.05, 120),
+                                      verify=False, headers=http_headers)
+          async_list.append(action_item)
       else:
-        print('Id: ' + url_entry.id + '. Hyperlink not a valid URL to a PDF ' +
-              'document: ', end='')
-        if url is not '':
+        print('Id: ' + url_entry.pdf_id + '. Hyperlink not a valid URL to a ' +
+              'PDF document: ', end='')
+        if url:
           print(url)
           result_list[-1].AddResult(url, 'Error: Hyperlink not a valid URL ' +
                                    'to a PDF document.')
         else:
           print('(blank)')
           result_list[-1].AddResult(url, 'Error: URL blank.')
-    write_results_csv()
+
+  # Perform request actions
+  for response in grequests.map(async_list):
+    url = ''
+    pdf_id = ''
+    for url_entry in url_list:
+      for u in url_entry.urls:
+        if u is response.url:
+          url = u
+          pdf_id = url_entry.pdf_id
+          break
+      if url:
+        break
+    try:
+      content_type = response.headers['Content-Type']
+    except KeyError:
+      print('Id: ' + pdf_id + '. Response from server does not contain a '
+            '\'Content-Type\' field: ' + url)
+      result_list[-1].AddResult(pdf_id, 'Error: Response from server does ' +
+                               'not contain a \'Content-Type\' field.')
+      pass
+    else:
+      if 'application/pdf' in content_type:
+        content = response.content
+        filename = pdf_id + '_' + url.split('/')[-1]
+        if sys.getsizeof(content) > 33:
+          write_pdf_to_file(content, filename, url, pdf_id)
+          break
+      else:
+        print('Id: ' + url_entry.pdf_id + '. File linked to in URL is not ' +
+              'a PDF document: ' + url)
+        result_list[-1].AddResult(url, 'Error: File linked to in URL is ' +
+                                 'not a PDF document.')
+
+  write_results_csv()
 
 def validate_results(csv_file_path, pdf_folder, delimiter, quotechar):
   with open(csv_file_path, newline='', encoding='utf-8') as csv_file:
@@ -229,7 +238,7 @@ def validate_results(csv_file_path, pdf_folder, delimiter, quotechar):
       files.remove(file)
 
   for file in files:
-    if file.suffix.upper() is '.PDF':
+    if file.suffix.upper() == '.PDF':
       print('File: \'' + file.name +
             '\' does not exist in validation database.')
       val_failed += 1
