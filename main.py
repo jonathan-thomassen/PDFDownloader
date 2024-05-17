@@ -114,6 +114,8 @@ def write_results_csv():
       csv_writer.writerow(csv_row)
 
 def write_pdf_to_file(content, filename, url, pdf_id):
+  if not filename.upper().endswith('.PDF'):
+    filename += '.pdf'
   try:
     with open(PDF_FOLDER + filename, pdf_writer_arg) as f:
       f.write(content)
@@ -171,7 +173,6 @@ def download_pdfs():
   # Perform request actions
   for response in grequests.map(async_list):
     if response:
-
       url = ''
       pdf_id = ''
 
@@ -236,12 +237,14 @@ def validate_results(csv_file_path, pdf_folder, delimiter, quotechar):
     while len(id_string) < 4:
       id_string = '0' + id_string
     files_accounted_for = []
+    file_missing = True
     for file in files:
       regex_string = r'\b' + id_string +  r'[^/]*\.pdf$'
       if re.match(regex_string, file.name):
+        file_missing = False
         with open(pdf_folder + file.name, 'rb') as pdf:
           md5hash = hashlib.md5(pdf.read()).hexdigest()
-          if md5hash is pdf_hash.lower():
+          if md5hash == pdf_hash.lower():
             print('Id: ' + pdf_id + '. File: \'' + file.name +
                   '\' Successful validation.')
             val_success += 1
@@ -250,6 +253,10 @@ def validate_results(csv_file_path, pdf_folder, delimiter, quotechar):
                   '\' Validation failed. MD5 hash mismatch.')
             val_failed += 1
         files_accounted_for.append(file)
+    if file_missing:
+      print('Id: ' + pdf_id + '. MD5 hash: \'' + pdf_hash +
+                  '\' File missing in folder.')
+      val_failed += 1
     for file in files_accounted_for:
       files.remove(file)
 
