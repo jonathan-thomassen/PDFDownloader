@@ -26,6 +26,7 @@ start_time = time.time()
 URL_CSV_PATH = './GRI_2017_2020.csv'
 MD5_CSV_PATH = './GRI_2017_2020_MD5_20220515.csv'
 PDF_FOLDER = './PDFs/'
+CONNECTION_LIMIT = 8
 
 pdf_writer_arg = 'xb'
 overwrite = False
@@ -33,7 +34,7 @@ run_validation = False
 
 url_list = []
 result_list = []
-async_list = []
+request_dict = []
 
 results_csv_name = 'Results_' + datetime.now().strftime('%Y%m%d%H%M%S') + '.csv'
 session = grequests.Session()
@@ -41,19 +42,15 @@ retries = Retry(total=5, backoff_factor=0.1)
 session.mount('http://', HTTPAdapter(max_retries=retries))
 session.mount('https://', HTTPAdapter(max_retries=retries))
 http_headers = {
-  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,\
-             image/avif,image/webp,image/apng,*/*;q=0.8,\
-             application/signed-exchange;v=b3;q=0.7',
-  'Accept-Encoding': 'gzip, deflate, br, zstd',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,\
+    image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
   'Accept-Language': 'en-DK,en;q=0.9,da-DK;q=0.8,da;q=0.7,en-US;q=0.6',
   'Cache-Control': 'no-cache',
-  'Connection': 'keep-alive',
   'Dnt': '1',
   'Pragma': 'no-cache',
   'Upgrade-Insecure-Requests': '1',
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
-                 AppleWebKit/537.36 (KHTML, like Gecko) \
-                 Chrome/124.0.0.0 Safari/537.36'
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
+    (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 }
 
 if len(sys.argv) > 1:
@@ -156,9 +153,10 @@ def download_pdfs():
             break
           # Create request action and add to list
           print('Id: ' + url_entry.pdf_id + '. Sending \'GET\' request: ' + url)
-          action_item = grequests.get(url, timeout=(6.05, 120),
-                                      verify=False, headers=http_headers)
-          async_list.append(action_item)
+          request_action = grequests.get(url, timeout=(6.05, 120),
+                                         verify=False, headers=http_headers)
+
+          request_dict.append((url_entry.pdf_id, url, request_action))
       else:
         print('Id: ' + url_entry.pdf_id + '. Hyperlink not a valid URL to a ' +
               'PDF document: ', end='')
@@ -169,23 +167,15 @@ def download_pdfs():
         else:
           print('(blank)')
           result_list[-1].AddResult(url, 'Error: URL blank.')
+      break
 
   # Perform request actions
-  for response in grequests.map(async_list):
+  for request_list_no, response in \
+    grequests.imap_enumerated([t[2] for t in request_dict],
+                              size=CONNECTION_LIMIT):
     if response:
-      url = ''
-      pdf_id = ''
-
-      # TODO: Consider a better solution for this
-      for url_entry in url_list:
-        for u in url_entry.urls:
-          if (u and u.split('/')[-1].upper()
-              == response.url.split('/')[-1].upper()):
-            url = u
-            pdf_id = url_entry.pdf_id
-            break
-        if url:
-          break
+      pdf_id = request_dict[request_list_no][0]
+      url = request_dict[request_list_no][1]
 
       try:
         content_type = response.headers['Content-Type']
