@@ -3,6 +3,7 @@
 import grequests
 import csv
 import datetime
+import time
 import sys
 import hashlib
 import pathlib
@@ -20,12 +21,15 @@ from pathlib import Path
 # Currently missing: 128: Sends to script which redirects to PDF?
 # Maybe Google Chrome magic is what makes it work?
 
+start_time = time.time()
+
 URL_CSV_PATH = './GRI_2017_2020.csv'
 MD5_CSV_PATH = './GRI_2017_2020_MD5_20220515.csv'
 PDF_FOLDER = './PDFs/'
-PDF_WRITER_ARG = 'xb'
+
+pdf_writer_arg = 'xb'
 overwrite = False
-RUN_VALIDATION = False
+run_validation = False
 
 url_list = []
 result_list = []
@@ -57,11 +61,11 @@ if len(sys.argv) > 1:
   if argument:
     if argument == '-o':
       print('Overwrite flag set. Downloader will overwrite old files.')
-      PDF_WRITER_ARG = 'wb'
+      pdf_writer_arg = 'wb'
       overwrite = True
     elif argument == '-v':
       print('Validation flag set. Running validation.')
-      RUN_VALIDATION = True
+      run_validation = True
 
 class UrlEntry:
   def __init__(self, pdf_id):
@@ -111,7 +115,7 @@ def write_results_csv():
 
 def write_pdf_to_file(content, filename, url, pdf_id):
   try:
-    with open(PDF_FOLDER + filename, PDF_WRITER_ARG) as f:
+    with open(PDF_FOLDER + filename, pdf_writer_arg) as f:
       f.write(content)
   except FileExistsError:
     print('Id: ' + pdf_id + '. File already exists: ' + filename)
@@ -159,43 +163,55 @@ def download_pdfs():
         if url:
           print(url)
           result_list[-1].AddResult(url, 'Error: Hyperlink not a valid URL ' +
-                                   'to a PDF document.')
+                                         'to a PDF document.')
         else:
           print('(blank)')
           result_list[-1].AddResult(url, 'Error: URL blank.')
 
   # Perform request actions
   for response in grequests.map(async_list):
-    url = ''
-    pdf_id = ''
-    for url_entry in url_list:
-      for u in url_entry.urls:
-        if u is response.url:
-          url = u
-          pdf_id = url_entry.pdf_id
+    if response:
+
+      url = ''
+      pdf_id = ''
+
+      # TODO: Consider a better solution for this
+      for url_entry in url_list:
+        for u in url_entry.urls:
+          if (u and u.split('/')[-1].upper()
+              == response.url.split('/')[-1].upper()):
+            url = u
+            pdf_id = url_entry.pdf_id
+            break
+        if url:
           break
-      if url:
-        break
-    try:
-      content_type = response.headers['Content-Type']
-    except KeyError:
-      print('Id: ' + pdf_id + '. Response from server does not contain a '
-            '\'Content-Type\' field: ' + url)
-      result_list[-1].AddResult(pdf_id, 'Error: Response from server does ' +
-                               'not contain a \'Content-Type\' field.')
-      pass
-    else:
-      if 'application/pdf' in content_type:
-        content = response.content
-        filename = pdf_id + '_' + url.split('/')[-1]
-        if sys.getsizeof(content) > 33:
-          write_pdf_to_file(content, filename, url, pdf_id)
-          break
+
+      try:
+        content_type = response.headers['Content-Type']
+      except KeyError:
+        print('Id: ' + pdf_id + '. Response from server does not contain a '
+              '\'Content-Type\' field: ' + url)
+        result_list[-1].AddResult(pdf_id, 'Error: Response from server does ' +
+                                 'not contain a \'Content-Type\' field.')
+        pass
       else:
-        print('Id: ' + url_entry.pdf_id + '. File linked to in URL is not ' +
-              'a PDF document: ' + url)
-        result_list[-1].AddResult(url, 'Error: File linked to in URL is ' +
-                                 'not a PDF document.')
+        if 'application/pdf' in content_type:
+          content = response.content
+
+          id_string = str(pdf_id)
+          while len(id_string) < 4:
+            id_string = '0' + id_string
+
+          filename = id_string + '_' + url.split('/')[-1]
+
+          if sys.getsizeof(content) > 33:
+            write_pdf_to_file(content, filename, url, pdf_id)
+
+        else:
+          print('Id: ' + pdf_id + '. File linked to in URL is not ' +
+                'a PDF document: ' + url)
+          result_list[-1].AddResult(url, 'Error: File linked to in URL is ' +
+                                   'not a PDF document.')
 
   write_results_csv()
 
@@ -246,8 +262,11 @@ def validate_results(csv_file_path, pdf_folder, delimiter, quotechar):
   print('Validation results: ' + str(val_success) + ' file(s) succeeded. '
         + str(val_failed) + ' file(s) failed.')
 
-if RUN_VALIDATION:
+if run_validation:
   validate_results(MD5_CSV_PATH, PDF_FOLDER, ',', '\"')
 else:
   read_url_csv(URL_CSV_PATH, ',', '\"')
   download_pdfs()
+
+print('Time elapsed since application start: '
+      f'{(time.time() - start_time):.3f} seconds')
