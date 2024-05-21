@@ -95,7 +95,7 @@ def write_file(content: Any,
                filepath: Path,
                url: str,
                pdf_id: str,
-               overwrite: bool,
+               overwrite: bool = False
                ) -> None:
     if overwrite:
         pdf_writer_arg = "wb"
@@ -116,6 +116,53 @@ def write_file(content: Any,
         results[-1].add(url, "File successfully downloaded.")
 
 
+def create_request(url: str,
+                   pdf_id: str,
+                   pdf_dir: Path,
+                   overwrite: bool,
+                   ) -> AsyncRequest | None:
+    if url.upper().startswith("HTTP"):
+        if url.upper().startswith("HTTP:"):
+            url = f"https:{url[5:]}"
+
+        file_id = pdf_id
+        while len(file_id) < 4:
+            file_id = f"0{file_id}"
+        filename = f"{file_id}_{url.split('/')[-1]}"
+
+        if not filename.upper().endswith(".PDF"):
+            filename += ".pdf"
+        if not overwrite:
+            filepath = pdf_dir.joinpath(filename)
+            if filepath.exists():
+                print(f"Id: {pdf_id}. File already exists: " f"{filename}")
+                results[-1].add(url, "Error: File already exists.")
+                return None
+
+            print(f"Id: {pdf_id}. Sending 'GET' request: " f"{url}")
+            request = grequests.get(
+                url,
+                timeout=(6.05, 120),
+                verify=False,
+                headers=http_headers,
+            )
+            return request
+    else:
+        print(
+            f"Id: {pdf_id}. Hyperlink not a valid URL to a PDF document: ",
+            end="",
+        )
+        if url:
+            print(url)
+            results[-1].add(
+                url,
+                "Error: Hyperlink not a valid URL to a PDF document.",
+            )
+        else:
+            print("(blank)")
+            results[-1].add(url, "Error: URL blank.")
+
+
 def download(csvpath: Path, pdf_dir: Path | None = None,
              connection_limit: int = 8, overwrite: bool = False) -> None:
     if pdf_dir is None:
@@ -128,56 +175,12 @@ def download(csvpath: Path, pdf_dir: Path | None = None,
     for url_entry in urls:
         results.append(ResultEntry(url_entry.pdf_id))
         for url in url_entry.urls:
-            # TODO: Convert this to a function.
-            if url.upper().startswith("HTTP"):
-                if url.upper().startswith("HTTP:"):
-                    url = "https:" + url[5:]
+            request = create_request(url, url_entry.pdf_id, pdf_dir, overwrite)
+            if request is not None:
+                requests.append({"id": url_entry.pdf_id,
+                                 "url": url,
+                                 "request": request})
 
-                id_string = url_entry.pdf_id
-                while len(id_string) < 4:
-                    id_string = "0" + id_string
-
-                filename = id_string + "_" + url.split("/")[-1]
-                if not filename.upper().endswith(".PDF"):
-                    filename += ".pdf"
-                if not overwrite:
-                    filepath = pdf_dir.joinpath(filename)
-                    if filepath.exists():
-                        print(
-                            f"Id: {url_entry.pdf_id}. File already exists: "
-                            f"{filename}"
-                        )
-                        results[-1].add(url, "Error: File already exists.")
-                        break
-
-                    # Create request action and add to list
-                    print(f"Id: {url_entry.pdf_id}. Sending 'GET' request: "
-                          f"{url}")
-                    request = grequests.get(
-                        url,
-                        timeout=(6.05, 120),
-                        verify=False,
-                        headers=http_headers,
-                    )
-
-                    requests.append({"id": url_entry.pdf_id,
-                                      "url": url,
-                                      "request": request})
-            else:
-                print(
-                    f"Id: {url_entry.pdf_id}. Hyperlink not a valid URL to a "
-                    "PDF document: ",
-                    end="",
-                )
-                if url:
-                    print(url)
-                    results[-1].add(
-                        url,
-                        "Error: Hyperlink not a valid URL to a PDF document.",
-                    )
-                else:
-                    print("(blank)")
-                    results[-1].add(url, "Error: URL blank.")
             # TODO: Remove this break and actually process both columns of urls.
             break
 
@@ -215,7 +218,7 @@ def download(csvpath: Path, pdf_dir: Path | None = None,
                     filepath = pdf_dir.joinpath(filename)
 
                     if sys.getsizeof(content) > 33:
-                        write_file(content, filepath, url, pdf_id, overwrite)
+                        write_file(content, filepath, url, pdf_id)
 
                 else:
                     print(

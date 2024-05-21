@@ -1,4 +1,4 @@
-""""""
+"""PDF validator module."""
 
 
 import csv
