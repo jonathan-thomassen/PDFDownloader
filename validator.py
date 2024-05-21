@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 
 
-def validate(csvpath: str, pdf_folder: str = "./PDFs/",
+def validate(csvpath: Path, pdf_folder: str = "./PDFs/",
              delimiter: str = ",", quotechar: str = '"'):
     with open(csvpath, newline="", encoding="utf-8") as csvfile:
         csv_reader = csv.reader(
