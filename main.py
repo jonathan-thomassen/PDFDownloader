@@ -13,9 +13,6 @@ import validator
 # TODO: More verbosity when establishing connection
 
 
-MD5_CSVPATH = "./GRI_2017_2020_MD5_20220515.csv"
-
-
 def main():
     start_time: float = time.time()
 
@@ -55,9 +52,9 @@ def main():
     else:
         overwrite = False
 
-    downloader.download(url_csvpath, overwrite=overwrite)
+    downloader.download_pdfs(url_csvpath, overwrite=overwrite)
     if validate:
-        validator.validate(md5_csvpath)
+        validator.validate_pdfs(md5_csvpath)
 
     end_time: float = time.time()
     print(

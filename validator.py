@@ -1,15 +1,15 @@
 """PDF validator module."""
 
 
+from pathlib import Path
 import csv
 import hashlib
-from pathlib import Path
 import re
 
 
-def validate(csvpath: Path, pdf_folder: str = "./PDFs/",
-             delimiter: str = ",", quotechar: str = '"'):
-    with open(csvpath, newline="", encoding="utf-8") as csvfile:
+def validate_pdfs(csv_path: Path, pdf_dir: str = "./PDFs/",
+                  delimiter: str = ",", quotechar: str = '"'):
+    with open(csv_path, newline="", encoding="utf-8") as csvfile:
         csv_reader = csv.reader(
             csvfile=csvfile, delimiter=delimiter, quotechar=quotechar
         )
@@ -20,7 +20,7 @@ def validate(csvpath: Path, pdf_folder: str = "./PDFs/",
                 md5s.update({row[0]: row[1]})
             i = 1
 
-    path = Path(pdf_folder)
+    path = Path(pdf_dir)
     files = [f for f in path.iterdir() if f.is_file()]
 
     val_success = 0
@@ -36,7 +36,7 @@ def validate(csvpath: Path, pdf_folder: str = "./PDFs/",
             regex_string = r"\b" + id_string + r"[^/]*\.pdf$"
             if re.match(regex_string, file.name):
                 file_missing = False
-                with open(pdf_folder + file.name, "rb") as pdf:
+                with open(pdf_dir + file.name, "rb") as pdf:
                     md5hash = hashlib.md5(pdf.read()).hexdigest()
                     if md5hash == pdf_hash.lower():
                         print(
@@ -55,14 +55,15 @@ def validate(csvpath: Path, pdf_folder: str = "./PDFs/",
             print(
                 f"Id: {pdf_id}. MD5 hash: '{pdf_hash}' "
                 "File missing in folder."
-                )
+            )
             val_failed += 1
         for file in files_accounted_for:
             files.remove(file)
 
     for file in files:
         if file.suffix.upper() == ".PDF":
-            print(f"File: '{file.name}' does not exist in validation database.")
+            print(
+                f"File: '{file.name}' does not exist in validation database.")
             val_failed += 1
 
     print(

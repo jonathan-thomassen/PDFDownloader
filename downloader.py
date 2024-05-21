@@ -1,21 +1,20 @@
 """PDF downloader module."""
 
-
-import csv
 from datetime import datetime
 from pathlib import Path
-import sys
 from typing import Any
+import csv
+import sys
 
-import grequests
 from grequests import AsyncRequest
 from requests.adapters import HTTPAdapter, Retry
+import grequests
 
 
 class UrlEntry:
     def __init__(self, pdf_id: str):
-        self.pdf_id = pdf_id
-        self.urls = []
+        self.pdf_id: str = pdf_id
+        self.urls: list[str] = []
 
     def add(self, url: str) -> None:
         self.urls.append(url)
@@ -23,16 +22,21 @@ class UrlEntry:
 
 class ResultEntry:
     def __init__(self, pdf_id: str):
-        self.pdf_id = pdf_id
-        self.results = {}
+        self.pdf_id: str = pdf_id
+        self.results: dict[str, str] = {}
 
     def add(self, url: str, result: str) -> None:
         self.results.update({url: result})
 
+class RequestContainer:
+    def __init__(self, pdf_id: str, url: str, request: AsyncRequest):
+        self.pdf_id = pdf_id
+        self.url = url
+        self.request = request
+
 
 urls: list[UrlEntry] = []
 results: list[ResultEntry] = []
-requests: list[dict[str, str | AsyncRequest]] = []
 
 results_csv_name = f"Results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
@@ -56,7 +60,7 @@ http_headers = {
 
 
 def read_url_csv(filepath: Path,
-                 delimiter: str = ",", quotechar: str =',') -> None:
+                 delimiter: str = ",", quotechar: str = ',') -> None:
     with open(
         file=filepath, newline="", errors="ignore", encoding="utf-8"
     ) as csv_file:
@@ -149,85 +153,115 @@ def create_request(url: str,
             return request
     else:
         print(
-            f"Id: {pdf_id}. Hyperlink not a valid URL to a PDF document: ",
+            f"Id: {pdf_id}. Hyperlink not a valid link to a PDF document: ",
             end="",
         )
         if url:
             print(url)
             results[-1].add(
-                url,
-                "Error: Hyperlink not a valid URL to a PDF document.",
+                url, "Error: URL not a valid link to a PDF document.",
             )
         else:
             print("(blank)")
             results[-1].add(url, "Error: URL blank.")
 
 
-def download(csvpath: Path, pdf_dir: Path | None = None,
-             connection_limit: int = 8, overwrite: bool = False) -> None:
+def send_requests(requests: list[RequestContainer],
+                  pdf_dir: Path, overwrite: bool,
+                  connection_limit: int) -> None:
+    for url_column in range(1, 2):
+        backup_requests: list[RequestContainer] = []
+        for request_list_no, response in grequests.imap_enumerated(
+            [r.request for r in requests],
+            size=connection_limit
+        ):
+            pdf_id = requests[request_list_no].pdf_id
+            url = requests[request_list_no].url
+
+            if url_column == 1:
+                try_backup_url = True
+            else:
+                try_backup_url = False
+
+            if response:
+                try:
+                    content_type: str = response.headers["Content-Type"]
+                except KeyError:
+                    print(
+                        f"Id: {pdf_id}. Response from server does not contain "
+                        f"a 'Content-Type' field: {url}"
+                    )
+                    results[-1].add(
+                        pdf_id,
+                        "Error: Response from "
+                        "server does not contain a 'Content-Type' field.",
+                    )
+                else:
+                    if "application/pdf" in content_type:
+                        content = response.content
+
+                        id_string = str(pdf_id)
+                        while len(id_string) < 4:
+                            id_string = "0" + id_string
+                        filename = f"{id_string}_{url.split('/')[-1]}"
+                        filepath = pdf_dir.joinpath(filename)
+
+                        if sys.getsizeof(content) > 33:
+                            write_file(content, filepath, url, pdf_id)
+                            try_backup_url = False
+                        else:
+                            print(
+                            f"Id: {pdf_id}. Response from server contains a "
+                            f"blank body: {url}"
+                        )
+                        results[-1].add(
+                            url, "Error: "
+                                 "Response from server contains a blank body."
+                        )
+                    else:
+                        print(
+                            f"Id: {pdf_id}. File linked to in URL is not a PDF "
+                            f"document: {url}"
+                        )
+                        results[-1].add(
+                            url, "Error: "
+                                 "File linked to in URL is not a PDF document."
+                        )
+
+            if try_backup_url:
+                for url_entry in urls:
+                    if url_entry.pdf_id == pdf_id:
+                        request = create_request(url_entry.urls[1],
+                                                 pdf_id, pdf_dir, overwrite)
+                        if request is not None:
+                            request_container = RequestContainer(pdf_id,
+                                                                 url,
+                                                                 request)
+                            backup_requests.append(request_container)
+                        break
+
+        requests = backup_requests
+
+
+def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
+                  connection_limit: int = 8, overwrite: bool = False) -> None:
     if pdf_dir is None:
         pdf_dir = Path("./PDFs/")
     elif not pdf_dir.is_dir():
         raise SystemError("Path is not a directory.")
 
-    read_url_csv(csvpath)
+    read_url_csv(csv_path)
+    requests: list[RequestContainer] = []
 
     for url_entry in urls:
-        results.append(ResultEntry(url_entry.pdf_id))
-        for url in url_entry.urls:
-            request = create_request(url, url_entry.pdf_id, pdf_dir, overwrite)
-            if request is not None:
-                requests.append({"id": url_entry.pdf_id,
-                                 "url": url,
-                                 "request": request})
+        pdf_id = url_entry.pdf_id
+        url = url_entry.urls[0]
 
-            # TODO: Remove this break and actually process both columns of urls.
-            break
+        results.append(ResultEntry(pdf_id))
+        request = create_request(url, pdf_id, pdf_dir, overwrite)
+        if request is not None:
+            request_container = RequestContainer(pdf_id, url, request)
+            requests.append(request_container)
 
-    # Perform request actions
-    for request_list_no, response in grequests.imap_enumerated(
-        [r["request"] for r in requests],
-        size=connection_limit
-    ):
-        if response:
-            pdf_id = requests[request_list_no]["id"]
-            url = requests[request_list_no]["url"]
-
-            try:
-                content_type: str = response.headers["Content-Type"]
-            except KeyError:
-                print(
-                    f"Id: {pdf_id}. Response from server does not contain a "
-                    f"'Content-Type' field: {url}"
-                )
-                results[-1].add(
-                    pdf_id,
-                    "Error: Response from "
-                    "server does not contain a 'Content-Type' field.",
-                )
-            else:
-                if "application/pdf" in content_type:
-                    content = response.content
-
-                    id_string = str(pdf_id)
-                    while len(id_string) < 4:
-                        id_string = "0" + id_string
-
-                    filename = f"{id_string}_{url.split('/')[-1]}"
-
-                    filepath = pdf_dir.joinpath(filename)
-
-                    if sys.getsizeof(content) > 33:
-                        write_file(content, filepath, url, pdf_id)
-
-                else:
-                    print(
-                        f"Id: {pdf_id}. File linked to in URL is not a PDF "
-                        f"document: {url}"
-                    )
-                    results[-1].add(
-                        url, "Error: "
-                             "File linked to in URL is not a PDF document."
-                    )
-
+    send_requests(requests, pdf_dir, overwrite, connection_limit)
     write_results_csv()
