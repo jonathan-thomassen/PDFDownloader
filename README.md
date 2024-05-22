@@ -12,19 +12,15 @@ This is a simple python script designed to download PDF files from a given CSV f
 **main.py PATH_TO_URL_CSV**
 
 Default output directory is "./PDFs/" which will be created if it doesn't exist. To set a different output directory  
-use the *-d* flag, like so:
-
+use the *-d* flag, like so:  
 **main.py PATH-TO-URL-CSV -d PATH-TO-OUTPUT-DIRECTORY**
 
-To run validation on the downloaded files after downloading has completed, use the *-v* flag, like so:
-
+To run validation on the downloaded files after downloading has completed, use the *-v* flag, like so:  
 **main.py PATH-TO-URL-CSV -d PATH-TO-OUTPUT-DIRECTORY -v PATH-TO-VALIDATION-CSV**
 
-To only run validation, without downloading any files, use capital-letter *-V*, like so:
-
+To only run validation, without downloading any files, use capital-letter *-V*, like so:  
 **main.py -d PATH-TO-PDF-DIRECTORY -V PATH-TO-VALIDATION-CSV**
 
 If, when downloading, you would like the application to overwrite existing files, you can include the *-overwrite*  
-flag as an argument, like so:
-
+flag as an argument, like so:  
 **main.py PATH-TO-URL-CSV -d PATH-TO-OUTPUT-DIRECTORY -overwrite**
