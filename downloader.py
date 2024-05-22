@@ -143,7 +143,6 @@ def create_request(url: str, pdf_id: str, pdf_dir: Path,
                                               "Error: File already exists.")
                 return None
 
-            print(f"Id: {pdf_id}. Sending 'GET' request: " f"{url}")
             request = grequests.get(url, timeout=TIMEOUT, verify=False,
                                     headers=http_headers)
             return request
@@ -163,44 +162,40 @@ def response_valid(response: Any, pdf_dir: Path, pdf_id: str, url: str) -> bool:
     try:
         content_type: str = response.headers["Content-Type"]
     except KeyError:
-        print(
-            f"Id: {pdf_id}. Response from server does not contain "
-            f"a 'Content-Type' field: {url}"
-        )
-        result_containers[pdf_id].add(
-            pdf_id,
-            "Error: Response from "
-            "server does not contain a 'Content-Type' field.",
-        )
+        print(f"Id: {pdf_id}. Response from server does not contain "
+              f"a 'Content-Type' field: {url}")
+        result_containers[pdf_id].add(pdf_id,
+                                      "Error: Response from server does not "
+                                      "contain a 'Content-Type' field.")
+    except AttributeError:
+        print(f"Id: {pdf_id}. Response from server does not contain "
+              f"a 'Content-Type' field: {url}")
+        result_containers[pdf_id].add(pdf_id,
+                                      "Error: Response from server does not "
+                                      "contain a 'Content-Type' field.")
     else:
         if "application/pdf" in content_type:
-            content = response.conten
+            content = response.content
             id_string = str(pdf_id)
             while len(id_string) < 4:
                 id_string = "0" + id_string
             filename = f"{id_string}_{url.split('/')[-1]}"
             filepath = pdf_dir.joinpath(filename)
+
             # Ensure content actually contains something
             if sys.getsizeof(content) > 33:
                 write_file(content, filepath, url, pdf_id)
                 return True
-            else:
-                print(
-                    f"Id: {pdf_id}. Response from server contains "
-                    f"a blank body: {url}"
-                )
-            result_containers[pdf_id].add(
-                url, "Error: "
-                     "Response from server contains a blank body."
-            )
+
+            print(f"Id: {pdf_id}. Response from server contains a blank body: "
+                  f"{url}")
+            result_containers[pdf_id].add(url, "Error: Response from server "
+                                               "contains a blank body.")
         else:
-            print(
-                f"Id: {pdf_id}. File linked to in URL is not a PDF "
-                f"document: {url}"
-            )
-            result_containers[pdf_id].add(
-                url, "Error: "
-                     "File linked to in URL is not a PDF document."
+            print(f"Id: {pdf_id}. File linked to in URL is not a PDF "
+                  f"document: {url}")
+            result_containers[pdf_id].add(url, "Error: File linked to in URL "
+                                               "is not a PDF document."
             )
     return False
 
@@ -215,16 +210,21 @@ def send_requests(request_containers: list[RequestContainer],
             pdf_id: str = request_containers[request_index].pdf_id
             url: str = request_containers[request_index].url
 
+            print(f"Id: {pdf_id}. Sending 'GET' request: {url}")
+
             valid_pdf = response_valid(response, pdf_dir=pdf_dir,
                                        pdf_id=pdf_id, url=url)
 
             if url_column == 1 and not valid_pdf:
                 for uc in url_containers:
-                    if uc.pdf_id == pdf_id:
+                    if uc.pdf_id == pdf_id:                        
                         request = create_request(uc.urls[1], pdf_id,
                                                  pdf_dir, overwrite)
                         if request is not None:
-                            request_container = RequestContainer(pdf_id, url,
+                            print(f"Id: {pdf_id}. Adding backup request to "
+                                  f"queue: {uc.urls[1]}")
+                            request_container = RequestContainer(pdf_id,
+                                                                 uc.urls[1],
                                                                  request)
                             backup_requests.append(request_container)
                         break
@@ -250,8 +250,10 @@ def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
         url = url_entry.urls[0]
 
         result_containers.update({pdf_id: ResultContainer()})
+
         request = create_request(url, pdf_id, pdf_dir, overwrite)
         if request is not None:
+            print(f"Id: {pdf_id}. Adding request to queue: {url}")
             request_container = RequestContainer(pdf_id, url, request)
             request_containers.append(request_container)
 
