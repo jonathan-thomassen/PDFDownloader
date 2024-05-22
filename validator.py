@@ -11,7 +11,7 @@ def check_hash_match(pdf_hash: str, file: Path, id_string: str, pdf_dir: str,
                      pdf_id: str) -> tuple[bool, bool]:
     regex_string = r"\b" + id_string + r"[^/]*\.pdf$"
     if re.match(regex_string, file.name):
-        file_exists = True
+        matching_filename = True
         with open(pdf_dir + file.name, "rb") as pdf:
             md5hash = hashlib.md5(pdf.read()).hexdigest()
             if md5hash == pdf_hash.lower():
@@ -23,9 +23,9 @@ def check_hash_match(pdf_hash: str, file: Path, id_string: str, pdf_dir: str,
                       "failed. MD5 hash mismatch.")
                 result = False
     else:
-        file_exists = False
+        matching_filename = False
         result = False
-    return (file_exists, result)
+    return (matching_filename, result)
 
 
 def validate_pdfs(csv_path: Path, pdf_dir: str = "./PDFTestFolder/",
@@ -50,23 +50,25 @@ def validate_pdfs(csv_path: Path, pdf_dir: str = "./PDFTestFolder/",
         while len(id_string) < 4:
             id_string = "0" + id_string
 
-        file_matching_name: Path | None = None
+        files_matching_name: list[Path] = []
         for file in files:
-            file_exists, result = check_hash_match(pdf_hash, file, id_string,
-                                                   pdf_dir, pdf_id)
-            if file_exists:
-                file_matching_name = file
+            matching_filename, result = check_hash_match(pdf_hash, file,
+                                                         id_string, pdf_dir,
+                                                         pdf_id)
+            if matching_filename:
+                files_matching_name.append(file)
                 if result:
                     success += 1
                 else:
                     failed += 1
-                break
-        if file_matching_name is None:
+
+        if len(files_matching_name) == 0:
             print(f"Id: {pdf_id}. MD5 hash: '{pdf_hash}' File missing in "
                   "folder.")
             failed += 1
         else:
-            files.remove(file_matching_name)
+            for file in files_matching_name:
+                files.remove(file)
 
     for file in files:
         if file.suffix.upper() == ".PDF":
