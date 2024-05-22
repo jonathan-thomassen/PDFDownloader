@@ -236,7 +236,7 @@ def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
     if pdf_dir is None:
         pdf_dir = Path("./PDFs/")
     elif not pdf_dir.is_dir():
-        raise SystemError("Path is not a directory.")
+        Path.mkdir(pdf_dir)
 
     start_time = time.time()
 

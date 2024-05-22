@@ -7,12 +7,16 @@ import hashlib
 import re
 
 
-def check_hash_match(pdf_hash: str, file: Path, id_string: str, pdf_dir: str,
-                     pdf_id: str) -> tuple[bool, bool]:
+def check_hash_match(pdf_hash: str, file: Path, pdf_id: str,
+                     ) -> tuple[bool, bool]:
+    id_string = str(pdf_id)
+    while len(id_string) < 4:
+        id_string = "0" + id_string
+
     regex_string = r"\b" + id_string + r"[^/]*\.pdf$"
     if re.match(regex_string, file.name):
         matching_filename = True
-        with open(pdf_dir + file.name, "rb") as pdf:
+        with open(file, "rb") as pdf:
             md5hash = hashlib.md5(pdf.read()).hexdigest()
             if md5hash == pdf_hash.lower():
                 print(f"Id: {pdf_id}. File: '{file.name}' Successful "
@@ -28,8 +32,13 @@ def check_hash_match(pdf_hash: str, file: Path, id_string: str, pdf_dir: str,
     return (matching_filename, result)
 
 
-def validate_pdfs(csv_path: Path, pdf_dir: str = "./PDFTestFolder/",
+def validate_pdfs(csv_path: Path, pdf_dir: Path | None = None,
                   delimiter: str = ",", quotechar: str = '"'):
+    if pdf_dir is None:
+        pdf_dir = Path("./PDFs/")
+    elif not pdf_dir.is_dir():
+        raise SystemError("Path is not a directory.")
+
     with open(csv_path, newline="", encoding="utf-8") as csvfile:
         csv_reader = csv.reader(csvfile, delimiter=delimiter,
                                 quotechar=quotechar)
@@ -46,15 +55,9 @@ def validate_pdfs(csv_path: Path, pdf_dir: str = "./PDFTestFolder/",
     failed = 0
 
     for pdf_id, pdf_hash in md5s.items():
-        id_string = str(pdf_id)
-        while len(id_string) < 4:
-            id_string = "0" + id_string
-
         files_matching_name: list[Path] = []
         for file in files:
-            matching_filename, result = check_hash_match(pdf_hash, file,
-                                                         id_string, pdf_dir,
-                                                         pdf_id)
+            matching_filename, result = check_hash_match(pdf_hash, file, pdf_id)
             if matching_filename:
                 files_matching_name.append(file)
                 if result:

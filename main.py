@@ -8,17 +8,20 @@ import downloader
 import validator
 
 
-# TODO: Refactor, Set output-dir through arg
+# TODO: Refactor
+
 
 CONNECTION_LIMIT = 8
+DEFAULT_PDF_PATH = "./PDFs/"
 
 
 def main():
-    url_csvpath: Path = Path()
-    md5_csvpath: Path = Path()
-    overwrite: bool = False
-    validate: bool = False
-    only_validate: bool = False
+    url_csvpath = Path()
+    md5_csvpath = Path()
+    overwrite = False
+    validate = False
+    only_validate = False
+    pdf_dir = Path(DEFAULT_PDF_PATH)
 
     if len(sys.argv) > 1:
         if Path(sys.argv[1]).is_file():
@@ -43,7 +46,21 @@ def main():
             else:
                 validate = False
 
-            if "-o" in sys.argv[2:]:
+            if "-d" in sys.argv[2:]:
+                i = 2
+                for arg in sys.argv[2:]:
+                    if arg == "-d":
+                        break
+                    i += 1
+
+                if Path(sys.argv[i + 1]):
+                    pdf_dir = Path(sys.argv[i + 1])
+                    print("Output directory set. PDFs will be downloaded to "
+                          "this directory")
+                else:
+                    raise SystemError("Path is not valid.")
+
+            if "-overwrite" in sys.argv[2:]:
                 print("Overwrite flag set. Downloader will overwrite old "
                       "files.")
                 overwrite = True
@@ -66,12 +83,13 @@ def main():
         raise SystemError("No arguments given.")
 
     if only_validate:
-        validator.validate_pdfs(md5_csvpath)
+        validator.validate_pdfs(md5_csvpath, pdf_dir=pdf_dir)
     else:
-        downloader.download_pdfs(url_csvpath, connection_limit=CONNECTION_LIMIT,
+        downloader.download_pdfs(url_csvpath, pdf_dir=pdf_dir,
+                                 connection_limit=CONNECTION_LIMIT,
                                  overwrite=overwrite)
         if validate:
-            validator.validate_pdfs(md5_csvpath)
+            validator.validate_pdfs(md5_csvpath, pdf_dir=pdf_dir)
 
 
 if __name__ == "__main__":
