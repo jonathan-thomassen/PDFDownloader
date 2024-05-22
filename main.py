@@ -3,7 +3,6 @@
 
 from pathlib import Path
 import sys
-import time
 
 import downloader
 import validator
@@ -13,8 +12,6 @@ import validator
 
 
 def main():
-    start_time: float = time.time()
-
     url_csvpath: Path
     md5_csvpath: Path = Path()
     overwrite: bool
@@ -78,12 +75,6 @@ def main():
         downloader.download_pdfs(url_csvpath, overwrite=overwrite)
         if validate:
             validator.validate_pdfs(md5_csvpath)
-
-    end_time: float = time.time()
-    print(
-        "Time elapsed since application start: "
-        f"{(end_time - start_time):.3f} seconds"
-    )
 
 
 if __name__ == "__main__":

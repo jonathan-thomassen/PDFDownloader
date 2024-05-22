@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+import time
 from typing import Any
 import csv
 import sys
@@ -9,6 +10,7 @@ import sys
 from grequests import AsyncRequest
 from requests.adapters import HTTPAdapter, Retry
 import grequests
+import urllib3
 
 
 class UrlEntry:
@@ -28,6 +30,7 @@ class ResultEntry:
     def add(self, url: str, result: str) -> None:
         self.results.update({url: result})
 
+
 class RequestContainer:
     def __init__(self, pdf_id: str, url: str, request: AsyncRequest):
         self.pdf_id = pdf_id
@@ -41,7 +44,7 @@ results: list[ResultEntry] = []
 results_csv_name = f"Results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
 session = grequests.Session()
-retries = Retry(total=5, backoff_factor=0.1)
+retries = Retry(total=3, backoff_factor=0.1)
 session.mount(prefix="http://", adapter=HTTPAdapter(max_retries=retries))
 session.mount(prefix="https://", adapter=HTTPAdapter(max_retries=retries))
 http_headers = {
@@ -57,9 +60,11 @@ http_headers = {
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36",
 }
+# Make considerations about security for this application
+urllib3.disable_warnings()
 
 
-def read_url_csv(filepath: Path, delimiter: str = ",", quotechar: str = "|") -> None:
+def read_url_csv(filepath: Path, delimiter: str = ",", quotechar: str = '"') -> None:
     with open(file=filepath, newline="", errors="ignore", encoding="utf-8") as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=delimiter, quotechar=quotechar)
         i = 0
@@ -139,12 +144,8 @@ def create_request(url: str,
                 return None
 
             print(f"Id: {pdf_id}. Sending 'GET' request: " f"{url}")
-            request = grequests.get(
-                url,
-                timeout=(6.05, 120),
-                verify=False,
-                headers=http_headers,
-            )
+            request = grequests.get(url, timeout=(3.05, 30), verify=False,
+                                    headers=http_headers)
             return request
     else:
         print(
@@ -201,6 +202,7 @@ def send_requests(requests: list[RequestContainer],
                         filename = f"{id_string}_{url.split('/')[-1]}"
                         filepath = pdf_dir.joinpath(filename)
 
+                        # Ensure content actually contains something
                         if sys.getsizeof(content) > 33:
                             write_file(content, filepath, url, pdf_id)
                             try_backup_url = False
@@ -229,8 +231,7 @@ def send_requests(requests: list[RequestContainer],
                         request = create_request(url_entry.urls[1],
                                                  pdf_id, pdf_dir, overwrite)
                         if request is not None:
-                            request_container = RequestContainer(pdf_id,
-                                                                 url,
+                            request_container = RequestContainer(pdf_id, url,
                                                                  request)
                             backup_requests.append(request_container)
                         break
@@ -244,6 +245,8 @@ def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
         pdf_dir = Path("./PDFs/")
     elif not pdf_dir.is_dir():
         raise SystemError("Path is not a directory.")
+
+    start_time = time.time()
 
     read_url_csv(csv_path)
     requests: list[RequestContainer] = []
@@ -259,4 +262,11 @@ def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
             requests.append(request_container)
 
     send_requests(requests, pdf_dir, overwrite, connection_limit)
+
+    end_time = time.time()
+    print(
+        "Time elapsed since application start: "
+        f"{(end_time - start_time):.3f} seconds"
+    )
+
     write_results_csv()
