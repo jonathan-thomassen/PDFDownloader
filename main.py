@@ -8,7 +8,7 @@ import downloader
 import validator
 
 
-# TODO: Unit tests, Progress bars + Make application more verbose
+# TODO: Fix results CSV, Refactor, Progress bars + Make application more verbose
 
 CONNECTION_LIMIT = 8
 

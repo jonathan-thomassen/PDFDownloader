@@ -27,8 +27,7 @@ class UrlContainer:
 
 
 class ResultContainer:
-    def __init__(self, pdf_id: str):
-        self.pdf_id: str = pdf_id
+    def __init__(self):
         self.results: dict[str, str] = {}
 
     def add(self, url: str, result: str) -> None:
@@ -42,8 +41,8 @@ class RequestContainer:
         self.request: AsyncRequest = request
 
 
-urls: list[UrlContainer] = []
-results: list[ResultContainer] = []
+url_containers: list[UrlContainer] = []
+result_containers: dict[str, ResultContainer] = {}
 
 results_csv_name = f"Results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
@@ -77,9 +76,9 @@ def read_url_csv(filepath: Path, delimiter: str = ",",
         i = 0
         for row in csv_reader:
             if i > 0:
-                urls.append(UrlContainer(row[0]))
+                url_containers.append(UrlContainer(row[0]))
                 for element in row[1:]:
-                    urls[-1].add(element)
+                    url_containers[-1].add(element)
             i += 1
 
 
@@ -88,11 +87,11 @@ def write_results_csv() -> None:
         csv_writer = csv.writer(csv_file, delimiter=",",
                                 quotechar="|", quoting=csv.QUOTE_MINIMAL)
         csv_writer.writerow(["Id", "URL_1", "Result_1", "URL_2", "Result_2"])
-        for result_entry in results:
+        for pdf_id, rc in result_containers.items():
             csv_row = []
-            csv_row.append(result_entry.pdf_id)
+            csv_row.append(pdf_id)
 
-            for url, result in result_entry.results.items():
+            for url, result in rc.results.items():
                 csv_row.append(url)
                 csv_row.append(result)
 
@@ -117,10 +116,10 @@ def write_file(content: Any, filepath: Path, url: str, pdf_id: str,
             f.write(content)
     except FileExistsError:
         print("Id: " + pdf_id + ". File already exists: " + filepath.name)
-        results[-1].add(url, "Error: File already exists.")
+        result_containers[pdf_id].add(url, "Error: File already exists.")
     else:
         print("Id: " + pdf_id + ". File successfully downloaded: " + url)
-        results[-1].add(url, "File successfully downloaded.")
+        result_containers[pdf_id].add(url, "File successfully downloaded.")
 
 
 def create_request(url: str, pdf_id: str, pdf_dir: Path,
@@ -140,7 +139,8 @@ def create_request(url: str, pdf_id: str, pdf_dir: Path,
             filepath = pdf_dir.joinpath(filename)
             if filepath.exists():
                 print(f"Id: {pdf_id}. File already exists: " f"{filename}")
-                results[-1].add(url, "Error: File already exists.")
+                result_containers[pdf_id].add(url,
+                                              "Error: File already exists.")
                 return None
 
             print(f"Id: {pdf_id}. Sending 'GET' request: " f"{url}")
@@ -152,24 +152,24 @@ def create_request(url: str, pdf_id: str, pdf_dir: Path,
               end="")
         if url:
             print(url)
-            results[-1].add(url,
-                            "Error: URL not a valid link to a PDF document.")
+            result_containers[pdf_id].add(url,
+                                          "Error: URL not a valid link to a PDF document.")
         else:
             print("(blank)")
-            results[-1].add(url, "Error: URL blank.")
+            result_containers[pdf_id].add(url, "Error: URL blank.")
 
 
-def send_requests(requests: list[RequestContainer],
+def send_requests(request_containers: list[RequestContainer],
                   pdf_dir: Path, overwrite: bool,
                   connection_limit: int) -> None:
     for url_column in range(1, 2):
         backup_requests: list[RequestContainer] = []
         for request_index, response in grequests.imap_enumerated(
-            [r.request for r in requests],
+            [r.request for r in request_containers],
             size=connection_limit
         ):
-            pdf_id: str = requests[request_index].pdf_id
-            url: str = requests[request_index].url
+            pdf_id: str = request_containers[request_index].pdf_id
+            url: str = request_containers[request_index].url
 
             if url_column == 1:
                 try_backup_url = True
@@ -184,7 +184,7 @@ def send_requests(requests: list[RequestContainer],
                         f"Id: {pdf_id}. Response from server does not contain "
                         f"a 'Content-Type' field: {url}"
                     )
-                    results[-1].add(
+                    result_containers[pdf_id].add(
                         pdf_id,
                         "Error: Response from "
                         "server does not contain a 'Content-Type' field.",
@@ -205,10 +205,10 @@ def send_requests(requests: list[RequestContainer],
                             try_backup_url = False
                         else:
                             print(
-                                f"Id: {pdf_id}. Response from server contains a "
-                                f"blank body: {url}"
+                                f"Id: {pdf_id}. Response from server contains "
+                                f"a blank body: {url}"
                             )
-                        results[-1].add(
+                        result_containers[pdf_id].add(
                             url, "Error: "
                                  "Response from server contains a blank body."
                         )
@@ -217,23 +217,24 @@ def send_requests(requests: list[RequestContainer],
                             f"Id: {pdf_id}. File linked to in URL is not a PDF "
                             f"document: {url}"
                         )
-                        results[-1].add(
+                        result_containers[pdf_id].add(
                             url, "Error: "
                                  "File linked to in URL is not a PDF document."
                         )
 
             if try_backup_url:
-                for url_entry in urls:
-                    if url_entry.pdf_id == pdf_id:
-                        request = create_request(url_entry.urls[1],
-                                                 pdf_id, pdf_dir, overwrite)
+                for uc in url_containers:
+                    if uc.pdf_id == pdf_id:
+                        request = create_request(uc.urls[1], pdf_id,
+                                                 pdf_dir, overwrite)
                         if request is not None:
                             request_container = RequestContainer(pdf_id, url,
                                                                  request)
                             backup_requests.append(request_container)
                         break
 
-        requests = backup_requests
+            write_results_csv()
+        request_containers = backup_requests
 
 
 def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
@@ -246,24 +247,22 @@ def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
     start_time = time.time()
 
     read_url_csv(csv_path)
-    requests: list[RequestContainer] = []
+    request_containers: list[RequestContainer] = []
 
-    for url_entry in urls:
+    for url_entry in url_containers:
         pdf_id = url_entry.pdf_id
         url = url_entry.urls[0]
 
-        results.append(ResultContainer(pdf_id))
+        result_containers.update({pdf_id: ResultContainer()})
         request = create_request(url, pdf_id, pdf_dir, overwrite)
         if request is not None:
             request_container = RequestContainer(pdf_id, url, request)
-            requests.append(request_container)
+            request_containers.append(request_container)
 
-    send_requests(requests, pdf_dir, overwrite, connection_limit)
+    send_requests(request_containers, pdf_dir, overwrite, connection_limit)
 
     end_time = time.time()
     print(
         "Time elapsed since application start: "
         f"{(end_time - start_time):.3f} seconds"
     )
-
-    write_results_csv()
