@@ -2,9 +2,9 @@
 
 from datetime import datetime
 from pathlib import Path
-import time
 from typing import Any
 import csv
+import time
 import sys
 
 from grequests import AsyncRequest
@@ -16,7 +16,7 @@ import urllib3
 TIMEOUT = (3.05, 30)
 
 
-class UrlEntry:
+class UrlContainer:
     def __init__(self, pdf_id: str):
         self.pdf_id: str = pdf_id
         self.urls: list[str] = []
@@ -25,7 +25,7 @@ class UrlEntry:
         self.urls.append(url)
 
 
-class ResultEntry:
+class ResultContainer:
     def __init__(self, pdf_id: str):
         self.pdf_id: str = pdf_id
         self.results: dict[str, str] = {}
@@ -41,8 +41,8 @@ class RequestContainer:
         self.request: AsyncRequest = request
 
 
-urls: list[UrlEntry] = []
-results: list[ResultEntry] = []
+urls: list[UrlContainer] = []
+results: list[ResultContainer] = []
 
 results_csv_name = f"Results_{datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
 
@@ -76,7 +76,7 @@ def read_url_csv(filepath: Path, delimiter: str = ",",
         i = 0
         for row in csv_reader:
             if i > 0:
-                urls.append(UrlEntry(row[0]))
+                urls.append(UrlContainer(row[0]))
                 for element in row[1:]:
                     urls[-1].add(element)
             i += 1
@@ -251,7 +251,7 @@ def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
         pdf_id = url_entry.pdf_id
         url = url_entry.urls[0]
 
-        results.append(ResultEntry(pdf_id))
+        results.append(ResultContainer(pdf_id))
         request = create_request(url, pdf_id, pdf_dir, overwrite)
         if request is not None:
             request_container = RequestContainer(pdf_id, url, request)
