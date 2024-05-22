@@ -7,8 +7,8 @@ import hashlib
 import re
 
 
-def check_hash_match(pdf_hash: str, file: Path, pdf_id: str,
-                     ) -> tuple[bool, bool]:
+def check_hash_match(pdf_hash: str, file: Path,
+                     pdf_id: str) -> tuple[bool, bool]:
     id_string = str(pdf_id)
     while len(id_string) < 4:
         id_string = "0" + id_string
@@ -32,11 +32,9 @@ def check_hash_match(pdf_hash: str, file: Path, pdf_id: str,
     return (matching_filename, result)
 
 
-def validate_pdfs(csv_path: Path, pdf_dir: Path | None = None,
-                  delimiter: str = ",", quotechar: str = '"'):
-    if pdf_dir is None:
-        pdf_dir = Path("./PDFs/")
-    elif not pdf_dir.is_dir():
+def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
+                  quotechar: str = '"'):
+    if not pdf_dir.is_dir():
         raise SystemError("Path is not a directory.")
 
     with open(csv_path, newline="", encoding="utf-8") as csvfile:

@@ -8,9 +8,6 @@ import downloader
 import validator
 
 
-# TODO: Refactor
-
-
 CONNECTION_LIMIT = 8
 DEFAULT_PDF_PATH = "./PDFs/"
 

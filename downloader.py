@@ -101,8 +101,8 @@ def write_results_csv() -> None:
             csv_writer.writerow(csv_row)
 
 
-def write_file(content: Any, filepath: Path, url: str, pdf_id: str,
-               overwrite: bool = False) -> None:
+def write_file(content: Any, filepath: Path, url: str,
+               pdf_id: str, overwrite: bool) -> None:
     if overwrite:
         pdf_writer_arg = "wb"
     else:
@@ -158,7 +158,8 @@ def create_request(url: str, pdf_id: str, pdf_dir: Path,
             result_containers[pdf_id].add(url, "Error: URL blank.")
 
 
-def response_valid(response: Any, pdf_dir: Path, pdf_id: str, url: str) -> bool:
+def response_valid(response: Any, pdf_dir: Path, pdf_id: str,
+                   url: str, overwrite: bool) -> bool:
     try:
         content_type: str = response.headers["Content-Type"]
     except KeyError:
@@ -184,7 +185,7 @@ def response_valid(response: Any, pdf_dir: Path, pdf_id: str, url: str) -> bool:
 
             # Ensure content actually contains something
             if sys.getsizeof(content) > 33:
-                write_file(content, filepath, url, pdf_id)
+                write_file(content, filepath, url, pdf_id, overwrite)
                 return True
 
             print(f"Id: {pdf_id}. Response from server contains a blank body: "
@@ -199,9 +200,8 @@ def response_valid(response: Any, pdf_dir: Path, pdf_id: str, url: str) -> bool:
     return False
 
 
-def send_requests(request_containers: list[RequestContainer],
-                  pdf_dir: Path, overwrite: bool,
-                  connection_limit: int) -> None:
+def send_requests(request_containers: list[RequestContainer], pdf_dir: Path,
+                  overwrite: bool, connection_limit: int) -> None:
     for url_column in range(1, 2):
         backup_requests: list[RequestContainer] = []
         for request_index, response in grequests.imap_enumerated(
@@ -212,7 +212,8 @@ def send_requests(request_containers: list[RequestContainer],
             print(f"Id: {pdf_id}. Sending 'GET' request: {url}")
 
             valid_pdf = response_valid(response, pdf_dir=pdf_dir,
-                                       pdf_id=pdf_id, url=url)
+                                       pdf_id=pdf_id, url=url,
+                                       overwrite=overwrite)
             if url_column == 1 and not valid_pdf:
                 for uc in url_containers:
                     if uc.pdf_id == pdf_id:
@@ -231,11 +232,9 @@ def send_requests(request_containers: list[RequestContainer],
         request_containers = backup_requests
 
 
-def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
-                  connection_limit: int = 5, overwrite: bool = False) -> None:
-    if pdf_dir is None:
-        pdf_dir = Path("./PDFs/")
-    elif not pdf_dir.is_dir():
+def download_pdfs(csv_path: Path, pdf_dir: Path, connection_limit: int,
+                  overwrite: bool) -> None:
+    if not pdf_dir.is_dir():
         Path.mkdir(pdf_dir)
 
     start_time = time.time()
