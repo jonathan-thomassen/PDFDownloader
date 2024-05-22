@@ -8,7 +8,7 @@ import downloader
 import validator
 
 
-# TODO: Refactor, Progress bars + Make application more verbose
+# TODO: Refactor, Set output-dir through arg
 
 CONNECTION_LIMIT = 8
 

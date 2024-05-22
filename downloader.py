@@ -195,8 +195,7 @@ def response_valid(response: Any, pdf_dir: Path, pdf_id: str, url: str) -> bool:
             print(f"Id: {pdf_id}. File linked to in URL is not a PDF "
                   f"document: {url}")
             result_containers[pdf_id].add(url, "Error: File linked to in URL "
-                                               "is not a PDF document."
-            )
+                                               "is not a PDF document.")
     return False
 
 
@@ -214,10 +213,9 @@ def send_requests(request_containers: list[RequestContainer],
 
             valid_pdf = response_valid(response, pdf_dir=pdf_dir,
                                        pdf_id=pdf_id, url=url)
-
             if url_column == 1 and not valid_pdf:
                 for uc in url_containers:
-                    if uc.pdf_id == pdf_id:                        
+                    if uc.pdf_id == pdf_id:
                         request = create_request(uc.urls[1], pdf_id,
                                                  pdf_dir, overwrite)
                         if request is not None:
@@ -260,7 +258,5 @@ def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
     send_requests(request_containers, pdf_dir, overwrite, connection_limit)
 
     end_time = time.time()
-    print(
-        "Time elapsed since application start: "
-        f"{(end_time - start_time):.3f} seconds"
-    )
+    print("Time elapsed since start of download: "
+          f"{(end_time - start_time):.3f} seconds")
