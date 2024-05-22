@@ -9,8 +9,7 @@ import downloader
 import validator
 
 
-# TODO: Check both URLs, Unit tests, Progress bars
-# TODO: More verbosity when establishing connection
+# TODO: Unit tests, Progress bars + Make application more verbose
 
 
 def main():
@@ -20,14 +19,16 @@ def main():
     md5_csvpath: Path = Path()
     overwrite: bool
     validate: bool
+    only_validate: bool
 
     if len(sys.argv) > 1:
         if Path(sys.argv[1]).is_file():
             url_csvpath = Path(sys.argv[1])
         else:
-            raise SystemError("Path is not a file.")
+            raise SystemError("The URL-CSV path is not a valid path to a file.")
     else:
-        raise SystemError("Path to CSV file must be given as first argument.")
+        raise SystemError("Path to URL-CSV file must "
+                          "be given as first argument.")
 
     if "-v" in sys.argv[2:]:
         i = 2
@@ -37,14 +38,33 @@ def main():
             i += 1
 
         if Path(sys.argv[i + 1]).is_file():
-            md5_csvpath = Path(sys.argv[1])
+            md5_csvpath = Path(sys.argv[i + 1])
 
             validate = True
-            print("Validation flag set. Will validate results.")
+            print("Validation flag set. Will validate results "
+                  "after downloading PDFs.")
         else:
             raise SystemError("Path is not a file.")
     else:
         validate = False
+
+    if "-V" in sys.argv[2:]:
+        i = 2
+        for arg in sys.argv[2:]:
+            if arg == "-V":
+                break
+            i += 1
+
+        if Path(sys.argv[i + 1]).is_file():
+            md5_csvpath = Path(sys.argv[i + 1])
+
+            only_validate = True
+            print("Capital validation flag set. Will skip download phase and "
+                  "validate existing files in PDF folder.")
+        else:
+            raise SystemError("Path is not a file.")
+    else:
+        only_validate = False
 
     if "-o" in sys.argv[2:]:
         print("Overwrite flag set. Downloader will overwrite old files.")
@@ -52,9 +72,12 @@ def main():
     else:
         overwrite = False
 
-    downloader.download_pdfs(url_csvpath, overwrite=overwrite)
-    if validate:
+    if only_validate:
         validator.validate_pdfs(md5_csvpath)
+    else:
+        downloader.download_pdfs(url_csvpath, overwrite=overwrite)
+        if validate:
+            validator.validate_pdfs(md5_csvpath)
 
     end_time: float = time.time()
     print(

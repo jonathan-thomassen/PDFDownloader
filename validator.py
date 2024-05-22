@@ -10,9 +10,8 @@ import re
 def validate_pdfs(csv_path: Path, pdf_dir: str = "./PDFs/",
                   delimiter: str = ",", quotechar: str = '"'):
     with open(csv_path, newline="", encoding="utf-8") as csvfile:
-        csv_reader = csv.reader(
-            csvfile=csvfile, delimiter=delimiter, quotechar=quotechar
-        )
+        csv_reader = csv.reader(csvfile, delimiter=delimiter,
+                                quotechar=quotechar)
         md5s = {}
         i = 0
         for row in csv_reader:

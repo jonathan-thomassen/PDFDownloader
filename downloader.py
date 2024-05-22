@@ -59,13 +59,9 @@ http_headers = {
 }
 
 
-def read_url_csv(filepath: Path,
-                 delimiter: str = ",", quotechar: str = ',') -> None:
-    with open(
-        file=filepath, newline="", errors="ignore", encoding="utf-8"
-    ) as csv_file:
-        csv_reader = csv.reader(csv_file,
-                                delimiter=delimiter, quotechar=quotechar)
+def read_url_csv(filepath: Path, delimiter: str = ",", quotechar: str = "|") -> None:
+    with open(file=filepath, newline="", errors="ignore", encoding="utf-8") as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=delimiter, quotechar=quotechar)
         i = 0
         for row in csv_reader:
             if i > 0:
@@ -77,9 +73,8 @@ def read_url_csv(filepath: Path,
 
 def write_results_csv() -> None:
     with open(results_csv_name, "w", newline="", encoding="utf-8") as csv_file:
-        csv_writer = csv.writer(
-            csv_file, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
-        )
+        csv_writer = csv.writer(csv_file, delimiter=",",
+                                quotechar="|", quoting=csv.QUOTE_MINIMAL)
         csv_writer.writerow(["Id", "URL_1", "Result_1", "URL_2", "Result_2"])
         for result_entry in results:
             csv_row = []
