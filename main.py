@@ -11,6 +11,9 @@ import validator
 # TODO: Unit tests, Progress bars + Make application more verbose
 
 
+CONNECTION_LIMIT = 8
+
+
 def main():
     url_csvpath: Path
     md5_csvpath: Path = Path()
@@ -72,7 +75,8 @@ def main():
     if only_validate:
         validator.validate_pdfs(md5_csvpath)
     else:
-        downloader.download_pdfs(url_csvpath, overwrite=overwrite)
+        downloader.download_pdfs(url_csvpath, connection_limit=CONNECTION_LIMIT,
+                                 overwrite=overwrite)
         if validate:
             validator.validate_pdfs(md5_csvpath)
 

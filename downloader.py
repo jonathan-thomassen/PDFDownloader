@@ -13,6 +13,9 @@ import grequests
 import urllib3
 
 
+TIMEOUT = (3.05, 30)
+
+
 class UrlEntry:
     def __init__(self, pdf_id: str):
         self.pdf_id: str = pdf_id
@@ -33,9 +36,9 @@ class ResultEntry:
 
 class RequestContainer:
     def __init__(self, pdf_id: str, url: str, request: AsyncRequest):
-        self.pdf_id = pdf_id
-        self.url = url
-        self.request = request
+        self.pdf_id: str = pdf_id
+        self.url: str = url
+        self.request: AsyncRequest = request
 
 
 urls: list[UrlEntry] = []
@@ -60,13 +63,16 @@ http_headers = {
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/124.0.0.0 Safari/537.36",
 }
-# Make considerations about security for this application
+# Make considerations about the security of this application
 urllib3.disable_warnings()
 
 
-def read_url_csv(filepath: Path, delimiter: str = ",", quotechar: str = '"') -> None:
-    with open(file=filepath, newline="", errors="ignore", encoding="utf-8") as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=delimiter, quotechar=quotechar)
+def read_url_csv(filepath: Path, delimiter: str = ",",
+                 quotechar: str = '"') -> None:
+    with open(file=filepath, newline="",errors="ignore",
+              encoding="utf-8") as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=delimiter,
+                                quotechar=quotechar)
         i = 0
         for row in csv_reader:
             if i > 0:
@@ -95,12 +101,8 @@ def write_results_csv() -> None:
             csv_writer.writerow(csv_row)
 
 
-def write_file(content: Any,
-               filepath: Path,
-               url: str,
-               pdf_id: str,
-               overwrite: bool = False
-               ) -> None:
+def write_file(content: Any, filepath: Path, url: str, pdf_id: str,
+               overwrite: bool = False) -> None:
     if overwrite:
         pdf_writer_arg = "wb"
     else:
@@ -120,11 +122,8 @@ def write_file(content: Any,
         results[-1].add(url, "File successfully downloaded.")
 
 
-def create_request(url: str,
-                   pdf_id: str,
-                   pdf_dir: Path,
-                   overwrite: bool,
-                   ) -> AsyncRequest | None:
+def create_request(url: str, pdf_id: str, pdf_dir: Path,
+                   overwrite: bool) -> AsyncRequest | None:
     if url.upper().startswith("HTTP"):
         if url.upper().startswith("HTTP:"):
             url = f"https:{url[5:]}"
@@ -144,19 +143,16 @@ def create_request(url: str,
                 return None
 
             print(f"Id: {pdf_id}. Sending 'GET' request: " f"{url}")
-            request = grequests.get(url, timeout=(3.05, 30), verify=False,
+            request = grequests.get(url, timeout=TIMEOUT, verify=False,
                                     headers=http_headers)
             return request
     else:
-        print(
-            f"Id: {pdf_id}. Hyperlink not a valid link to a PDF document: ",
-            end="",
-        )
+        print(f"Id: {pdf_id}. Hyperlink not a valid link to a PDF document: ",
+              end="")
         if url:
             print(url)
-            results[-1].add(
-                url, "Error: URL not a valid link to a PDF document.",
-            )
+            results[-1].add(url,
+                            "Error: URL not a valid link to a PDF document.")
         else:
             print("(blank)")
             results[-1].add(url, "Error: URL blank.")
@@ -167,12 +163,12 @@ def send_requests(requests: list[RequestContainer],
                   connection_limit: int) -> None:
     for url_column in range(1, 2):
         backup_requests: list[RequestContainer] = []
-        for request_list_no, response in grequests.imap_enumerated(
+        for request_index, response in grequests.imap_enumerated(
             [r.request for r in requests],
             size=connection_limit
         ):
-            pdf_id = requests[request_list_no].pdf_id
-            url = requests[request_list_no].url
+            pdf_id: str = requests[request_index].pdf_id
+            url: str = requests[request_index].url
 
             if url_column == 1:
                 try_backup_url = True
@@ -240,7 +236,7 @@ def send_requests(requests: list[RequestContainer],
 
 
 def download_pdfs(csv_path: Path, pdf_dir: Path | None = None,
-                  connection_limit: int = 8, overwrite: bool = False) -> None:
+                  connection_limit: int = 5, overwrite: bool = False) -> None:
     if pdf_dir is None:
         pdf_dir = Path("./PDFs/")
     elif not pdf_dir.is_dir():
