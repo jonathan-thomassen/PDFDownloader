@@ -1,5 +1,6 @@
 """PDF downloader module."""
 
+
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -69,7 +70,7 @@ urllib3.disable_warnings()
 
 def read_url_csv(filepath: Path, delimiter: str = ",",
                  quotechar: str = '"') -> None:
-    with open(file=filepath, newline="",errors="ignore",
+    with open(file=filepath, newline="", errors="ignore",
               encoding="utf-8") as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=delimiter,
                                 quotechar=quotechar)
@@ -204,9 +205,9 @@ def send_requests(requests: list[RequestContainer],
                             try_backup_url = False
                         else:
                             print(
-                            f"Id: {pdf_id}. Response from server contains a "
-                            f"blank body: {url}"
-                        )
+                                f"Id: {pdf_id}. Response from server contains a "
+                                f"blank body: {url}"
+                            )
                         results[-1].add(
                             url, "Error: "
                                  "Response from server contains a blank body."

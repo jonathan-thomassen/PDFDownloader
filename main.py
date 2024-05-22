@@ -49,21 +49,17 @@ def main():
                 overwrite = True
             else:
                 overwrite = False
-        elif "-V" in sys.argv[2:]:
-            i = 2
-            for arg in sys.argv[2:]:
-                if arg == "-V":
-                    break
-                i += 1
-
-            if Path(sys.argv[i + 1]).is_file():
-                md5_csvpath = Path(sys.argv[i + 1])
-
-                only_validate = True
-                print("Upper-case validation flag set. Will skip download "
-                      "phase and validate existing files in PDF folder.")
+        elif sys.argv[1] == "-V":
+            if len(sys.argv) > 2:
+                if Path(sys.argv[2]).is_file():
+                    md5_csvpath = Path(sys.argv[2])
+                    only_validate = True
+                    print("Upper-case validation flag set. Will skip download "
+                          "phase and validate existing files in PDF folder.")
+                else:
+                    raise SystemError("Path to validation CSV is not a file.")
             else:
-                raise SystemError("Path is not a file.")
+                raise SystemError("Path to validation CSV not given.")
         else:
             raise SystemError("Arguments invalid.")
     else:
