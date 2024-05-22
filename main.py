@@ -32,14 +32,17 @@ def main():
                         break
                     i += 1
 
-                if Path(sys.argv[i + 1]).is_file():
-                    md5_csvpath = Path(sys.argv[i + 1])
-
-                    validate = True
-                    print("Validation flag set. Will validate results after "
-                          "downloading PDFs.")
+                if len(sys.argv) > i + 1:
+                    if Path(sys.argv[i + 1]).is_file():
+                        md5_csvpath = Path(sys.argv[i + 1])
+                        validate = True
+                        print("Validation flag set. Will validate results "
+                              "after downloading PDFs.")
+                    else:
+                        raise SystemError("CSV file could not be found.")
                 else:
-                    raise SystemError("Path is not a file.")
+                    raise SystemError("Argument to validation-CSV file must be "
+                                      "set when validation is enabled.")
             else:
                 validate = False
 
