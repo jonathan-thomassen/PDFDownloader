@@ -43,39 +43,41 @@ def main():
             else:
                 validate = False
 
-            if "-d" in sys.argv[2:]:
-                i = 2
-                for arg in sys.argv[2:]:
-                    if arg == "-d":
-                        break
-                    i += 1
-
-                if Path(sys.argv[i + 1]):
-                    pdf_dir = Path(sys.argv[i + 1])
-                    print("Output directory set. PDFs will be downloaded to "
-                          "this directory")
-                else:
-                    raise SystemError("Path is not valid.")
-
             if "-overwrite" in sys.argv[2:]:
                 print("Overwrite flag set. Downloader will overwrite old "
                       "files.")
                 overwrite = True
             else:
                 overwrite = False
-        elif sys.argv[1] == "-V":
-            if len(sys.argv) > 2:
-                if Path(sys.argv[2]).is_file():
-                    md5_csvpath = Path(sys.argv[2])
-                    only_validate = True
-                    print("Upper-case validation flag set. Will skip download "
-                          "phase and validate existing files in PDF folder.")
-                else:
-                    raise SystemError("Path to validation CSV is not a file.")
+        elif sys.argv[1:] == "-V":
+            i = 1
+            for arg in sys.argv[1:]:
+                if arg == "-V":
+                    break
+                i += 1
+
+            if Path(sys.argv[i + 1]).is_file():
+                md5_csvpath = Path(sys.argv[i + 1])
+                only_validate = True
+                print("Upper-case validation flag set. Will skip download "
+                      "phase and validate existing files in PDF folder.")
             else:
-                raise SystemError("Path to validation CSV not given.")
+                raise SystemError("Path to validation CSV is not a file.")
         else:
             raise SystemError("Arguments invalid.")
+
+        if "-d" in sys.argv[1:]:
+            i = 1
+            for arg in sys.argv[1:]:
+                if arg == "-d":
+                    break
+                i += 1
+
+            if Path(sys.argv[i + 1]):
+                pdf_dir = Path(sys.argv[i + 1])
+                print("PDF directory set through argument.")
+            else:
+                raise SystemError("Path is not valid.")
     else:
         raise SystemError("No arguments given.")
 
