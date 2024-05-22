@@ -152,11 +152,57 @@ def create_request(url: str, pdf_id: str, pdf_dir: Path,
               end="")
         if url:
             print(url)
-            result_containers[pdf_id].add(url,
-                                          "Error: URL not a valid link to a PDF document.")
+            result_containers[pdf_id].add(url, "Error: URL not a valid link to "
+                                               "a PDF document.")
         else:
             print("(blank)")
             result_containers[pdf_id].add(url, "Error: URL blank.")
+
+
+def response_valid(response: Any, pdf_dir: Path, pdf_id: str, url: str) -> bool:
+    try:
+        content_type: str = response.headers["Content-Type"]
+    except KeyError:
+        print(
+            f"Id: {pdf_id}. Response from server does not contain "
+            f"a 'Content-Type' field: {url}"
+        )
+        result_containers[pdf_id].add(
+            pdf_id,
+            "Error: Response from "
+            "server does not contain a 'Content-Type' field.",
+        )
+    else:
+        if "application/pdf" in content_type:
+            content = response.conten
+            id_string = str(pdf_id)
+            while len(id_string) < 4:
+                id_string = "0" + id_string
+            filename = f"{id_string}_{url.split('/')[-1]}"
+            filepath = pdf_dir.joinpath(filename)
+            # Ensure content actually contains something
+            if sys.getsizeof(content) > 33:
+                write_file(content, filepath, url, pdf_id)
+                return True
+            else:
+                print(
+                    f"Id: {pdf_id}. Response from server contains "
+                    f"a blank body: {url}"
+                )
+            result_containers[pdf_id].add(
+                url, "Error: "
+                     "Response from server contains a blank body."
+            )
+        else:
+            print(
+                f"Id: {pdf_id}. File linked to in URL is not a PDF "
+                f"document: {url}"
+            )
+            result_containers[pdf_id].add(
+                url, "Error: "
+                     "File linked to in URL is not a PDF document."
+            )
+    return False
 
 
 def send_requests(request_containers: list[RequestContainer],
@@ -165,64 +211,14 @@ def send_requests(request_containers: list[RequestContainer],
     for url_column in range(1, 2):
         backup_requests: list[RequestContainer] = []
         for request_index, response in grequests.imap_enumerated(
-            [r.request for r in request_containers],
-            size=connection_limit
-        ):
+                [r.request for r in request_containers], size=connection_limit):
             pdf_id: str = request_containers[request_index].pdf_id
             url: str = request_containers[request_index].url
 
-            if url_column == 1:
-                try_backup_url = True
-            else:
-                try_backup_url = False
+            valid_pdf = response_valid(response, pdf_dir=pdf_dir,
+                                       pdf_id=pdf_id, url=url)
 
-            if response:
-                try:
-                    content_type: str = response.headers["Content-Type"]
-                except KeyError:
-                    print(
-                        f"Id: {pdf_id}. Response from server does not contain "
-                        f"a 'Content-Type' field: {url}"
-                    )
-                    result_containers[pdf_id].add(
-                        pdf_id,
-                        "Error: Response from "
-                        "server does not contain a 'Content-Type' field.",
-                    )
-                else:
-                    if "application/pdf" in content_type:
-                        content = response.content
-
-                        id_string = str(pdf_id)
-                        while len(id_string) < 4:
-                            id_string = "0" + id_string
-                        filename = f"{id_string}_{url.split('/')[-1]}"
-                        filepath = pdf_dir.joinpath(filename)
-
-                        # Ensure content actually contains something
-                        if sys.getsizeof(content) > 33:
-                            write_file(content, filepath, url, pdf_id)
-                            try_backup_url = False
-                        else:
-                            print(
-                                f"Id: {pdf_id}. Response from server contains "
-                                f"a blank body: {url}"
-                            )
-                        result_containers[pdf_id].add(
-                            url, "Error: "
-                                 "Response from server contains a blank body."
-                        )
-                    else:
-                        print(
-                            f"Id: {pdf_id}. File linked to in URL is not a PDF "
-                            f"document: {url}"
-                        )
-                        result_containers[pdf_id].add(
-                            url, "Error: "
-                                 "File linked to in URL is not a PDF document."
-                        )
-
-            if try_backup_url:
+            if url_column == 1 and not valid_pdf:
                 for uc in url_containers:
                     if uc.pdf_id == pdf_id:
                         request = create_request(uc.urls[1], pdf_id,

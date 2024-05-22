@@ -1,4 +1,4 @@
-"""Module providing PDF scraper functionality."""
+"""Application for scraping PDFs from a CSV file with URLs."""
 
 
 from pathlib import Path
@@ -8,7 +8,7 @@ import downloader
 import validator
 
 
-# TODO: Fix results CSV, Refactor, Progress bars + Make application more verbose
+# TODO: Refactor, Progress bars + Make application more verbose
 
 CONNECTION_LIMIT = 8
 
