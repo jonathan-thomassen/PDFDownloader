@@ -11,7 +11,7 @@ import validator
 CONNECTION_LIMIT = 8
 DEFAULT_PDF_PATH = "./PDFs/"
 
-
+# TODO: Move argument checking to a function and further refactor
 def main():
     url_csvpath = Path()
     md5_csvpath = Path()
