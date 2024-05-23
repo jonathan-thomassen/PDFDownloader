@@ -32,11 +32,7 @@ def check_hash_match(pdf_hash: str, file: Path,
     return (matching_filename, result)
 
 
-def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
-                  quotechar: str = '"'):
-    if not pdf_dir.is_dir():
-        raise SystemError("Path is not a directory.")
-
+def read_hash_csv(csv_path, delimiter, quotechar) -> dict[str, str]:
     with open(csv_path, newline="", encoding="utf-8") as csvfile:
         csv_reader = csv.reader(csvfile, delimiter=delimiter,
                                 quotechar=quotechar)
@@ -46,6 +42,16 @@ def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
             if not first_row:
                 md5s.update({row[0]: row[1]})
             first_row = False
+
+        return md5s
+
+
+def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
+                  quotechar: str = '"'):
+    if not pdf_dir.is_dir():
+        raise SystemError("Path is not a directory.")
+
+    md5s = read_hash_csv(csv_path, delimiter, quotechar)
 
     path = Path(pdf_dir)
     files = [f for f in path.iterdir() if f.is_file()]
