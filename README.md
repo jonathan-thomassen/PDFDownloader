@@ -35,6 +35,9 @@ flag as an argument, like so:
 
 ### Format of URL CSV file
 
+This CSV file is expected to have headers, but the title in these headers is not checked, and is thus completely  
+optional.  
+Example:  
 | Id | PDF-Link-1 | PDF-Link-2 |
 | - | - | - |
 | 3 | http://www.thisisaurl.com/toa.pdf | https://thisisabackupurl.gov/tothesame.pdf |
@@ -43,6 +46,9 @@ The URL CSV file is expected to be comma-separated, using double-quation marks (
 
 ### Format of MD5 CSV file
 
+As with the URL CSV file, the MD5 CSV file is also expected to have headers, but the titles themselves do not  
+matter.  
+Example:  
 | Id | MD5 |
 | - | - |
 | 3 | 83224762B21413EC6ED3F43270EBC74F |
