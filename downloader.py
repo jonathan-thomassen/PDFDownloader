@@ -1,7 +1,7 @@
 """PDF downloader module."""
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -21,7 +21,7 @@ TIMEOUT = (3.05, 30)
 @dataclass
 class UrlContainer:
     pdf_id: str
-    urls: list[str] = []
+    urls: list[str] = field(default_factory=list[str])
 
     def add(self, url: str) -> None:
         self.urls.append(url)
@@ -29,7 +29,7 @@ class UrlContainer:
 
 @dataclass
 class ResultContainer:
-    results: dict[str, str] = {}
+    results: dict[str, str] = field(default_factory=dict[str, str])
 
     def add(self, url: str, result: str) -> None:
         self.results.update({url: result})
