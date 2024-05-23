@@ -164,6 +164,7 @@ def create_request(url: str, pdf_id: str,
         else:
             print("(blank)")
             result_containers[pdf_id].add(url, "Error: URL blank.")
+    return None
 
 
 def create_backup_request(pdf_id: str,

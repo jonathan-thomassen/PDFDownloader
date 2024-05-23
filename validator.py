@@ -62,8 +62,7 @@ def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
     config = ValidatorConfig(csv_path, delimiter, quotechar)
     md5s = read_hash_csv(config)
 
-    path = Path(pdf_dir)
-    files = [f for f in path.iterdir() if f.is_file()]
+    files = [f for f in pdf_dir.iterdir() if f.is_file()]
     success = 0
     failed = 0
 
