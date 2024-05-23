@@ -43,7 +43,7 @@ def read_hash_csv(csv_path, delimiter, quotechar) -> dict[str, str]:
                 md5s.update({row[0]: row[1]})
             first_row = False
 
-        return md5s
+    return md5s
 
 
 def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
