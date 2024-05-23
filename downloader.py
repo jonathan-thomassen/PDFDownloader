@@ -41,6 +41,13 @@ class RequestContainer:
         self.request: AsyncRequest = request
 
 
+class DownloadConfig:
+    def __init__(self, pdf_dir: Path, overwrite: bool, connection_limit: int):
+        self.pdf_dir = pdf_dir
+        self.overwrite = overwrite
+        self.connection_limit = connection_limit
+
+
 url_containers: list[UrlContainer] = []
 result_containers: dict[str, ResultContainer] = {}
 
@@ -122,8 +129,8 @@ def write_file(content: Any, filepath: Path, url: str,
         result_containers[pdf_id].add(url, "File successfully downloaded.")
 
 
-def create_request(url: str, pdf_id: str, pdf_dir: Path,
-                   overwrite: bool) -> AsyncRequest | None:
+def create_request(url: str, pdf_id: str,
+                   config: DownloadConfig) -> AsyncRequest | None:
     if url.upper().startswith("HTTP"):
         if url.upper().startswith("HTTP:"):
             url = f"https:{url[5:]}"
@@ -135,8 +142,8 @@ def create_request(url: str, pdf_id: str, pdf_dir: Path,
 
         if not filename.upper().endswith(".PDF"):
             filename += ".pdf"
-        if not overwrite:
-            filepath = pdf_dir.joinpath(filename)
+        if not config.overwrite:
+            filepath = config.pdf_dir.joinpath(filename)
             if filepath.exists():
                 print(f"Id: {pdf_id}. File already exists: " f"{filename}")
                 result_containers[pdf_id].add(url,
@@ -158,8 +165,19 @@ def create_request(url: str, pdf_id: str, pdf_dir: Path,
             result_containers[pdf_id].add(url, "Error: URL blank.")
 
 
-def response_valid(response: Any, pdf_dir: Path, pdf_id: str,
-                   url: str, overwrite: bool) -> bool:
+def create_backup_request(pdf_id: str,
+                          config: DownloadConfig) -> AsyncRequest | None:
+    for uc in url_containers:
+        if uc.pdf_id == pdf_id:
+            request = create_request(uc.urls[1], pdf_id, config)
+            return request
+    return None
+
+
+def response_valid(response: Any, pdf_id: str,
+                   url: str, config: DownloadConfig) -> bool:
+    pdf_dir = config.pdf_dir
+
     try:
         content_type: str = response.headers["Content-Type"]
     except KeyError:
@@ -185,7 +203,7 @@ def response_valid(response: Any, pdf_dir: Path, pdf_id: str,
 
             # Ensure content actually contains something
             if sys.getsizeof(content) > 33:
-                write_file(content, filepath, url, pdf_id, overwrite)
+                write_file(content, filepath, url, pdf_id, config.overwrite)
                 return True
 
             print(f"Id: {pdf_id}. Response from server contains a blank body: "
@@ -200,33 +218,26 @@ def response_valid(response: Any, pdf_dir: Path, pdf_id: str,
     return False
 
 
-def send_requests(request_containers: list[RequestContainer], pdf_dir: Path,
-                  overwrite: bool, connection_limit: int) -> None:
+def send_requests(request_containers: list[RequestContainer],
+                  config: DownloadConfig) -> None:
     for url_column in range(1, 2):
         backup_requests: list[RequestContainer] = []
         for request_index, response in grequests.imap_enumerated(
-                [r.request for r in request_containers], size=connection_limit):
+                [r.request for r in request_containers],
+                size=config.connection_limit):
             pdf_id: str = request_containers[request_index].pdf_id
             url: str = request_containers[request_index].url
 
             print(f"Id: {pdf_id}. Sending 'GET' request: {url}")
-
-            valid_pdf = response_valid(response, pdf_dir=pdf_dir,
-                                       pdf_id=pdf_id, url=url,
-                                       overwrite=overwrite)
+            valid_pdf = response_valid(response, pdf_id, url, config)
             if url_column == 1 and not valid_pdf:
-                for uc in url_containers:
-                    if uc.pdf_id == pdf_id:
-                        request = create_request(uc.urls[1], pdf_id,
-                                                 pdf_dir, overwrite)
-                        if request is not None:
-                            print(f"Id: {pdf_id}. Adding backup request to "
-                                  f"queue: {uc.urls[1]}")
-                            request_container = RequestContainer(pdf_id,
-                                                                 uc.urls[1],
-                                                                 request)
-                            backup_requests.append(request_container)
-                        break
+                request = create_backup_request(pdf_id, config)
+                if request is not None:
+                    print(f"Id: {pdf_id}. Adding backup request to "
+                          f"queue: {request.url}")
+                    request_container = RequestContainer(pdf_id, request.url,
+                                                         request)
+                    backup_requests.append(request_container)
 
             write_results_csv()
         request_containers = backup_requests
@@ -239,6 +250,8 @@ def download_pdfs(csv_path: Path, pdf_dir: Path, connection_limit: int,
 
     start_time = time.time()
 
+    config = DownloadConfig(pdf_dir, overwrite, connection_limit)
+
     read_url_csv(csv_path)
     request_containers: list[RequestContainer] = []
 
@@ -248,13 +261,13 @@ def download_pdfs(csv_path: Path, pdf_dir: Path, connection_limit: int,
 
         result_containers.update({pdf_id: ResultContainer()})
 
-        request = create_request(url, pdf_id, pdf_dir, overwrite)
+        request = create_request(url, pdf_id, config)
         if request is not None:
             print(f"Id: {pdf_id}. Adding request to queue: {url}")
             request_container = RequestContainer(pdf_id, url, request)
             request_containers.append(request_container)
 
-    send_requests(request_containers, pdf_dir, overwrite, connection_limit)
+    send_requests(request_containers, config)
 
     end_time = time.time()
     print("Time elapsed since start of download: "
