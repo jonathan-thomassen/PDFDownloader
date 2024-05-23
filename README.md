@@ -7,7 +7,7 @@ This is a simple python script designed to download PDF files from a given CSV f
 * The script generates a CSV file with a list of results of the downloads.
 * MD5 validation is available to validate the integrity of the downloaded files.
 
-## Important security notice
+## Important security disclaimer
 
 TLS certificate verification is disabled for this application. Thus, it is highly recommended to only include URLs  
 to sources you trust. The author takes no responsibility for any security breaches as a result of the use of this  
