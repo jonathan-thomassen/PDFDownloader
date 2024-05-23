@@ -1,6 +1,7 @@
 """PDF downloader module."""
 
 
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -17,35 +18,35 @@ import urllib3
 TIMEOUT = (3.05, 30)
 
 
+@dataclass
 class UrlContainer:
-    def __init__(self, pdf_id: str):
-        self.pdf_id: str = pdf_id
-        self.urls: list[str] = []
+    pdf_id: str
+    urls: list[str] = []
 
     def add(self, url: str) -> None:
         self.urls.append(url)
 
 
+@dataclass
 class ResultContainer:
-    def __init__(self):
-        self.results: dict[str, str] = {}
+    results: dict[str, str] = {}
 
     def add(self, url: str, result: str) -> None:
         self.results.update({url: result})
 
 
+@dataclass
 class RequestContainer:
-    def __init__(self, pdf_id: str, url: str, request: AsyncRequest):
-        self.pdf_id: str = pdf_id
-        self.url: str = url
-        self.request: AsyncRequest = request
+    pdf_id: str
+    url: str
+    request: AsyncRequest
 
 
+@dataclass
 class DownloadConfig:
-    def __init__(self, pdf_dir: Path, overwrite: bool, connection_limit: int):
-        self.pdf_dir = pdf_dir
-        self.overwrite = overwrite
-        self.connection_limit = connection_limit
+    pdf_dir: Path
+    overwrite: bool
+    connection_limit: int
 
 
 url_containers: list[UrlContainer] = []

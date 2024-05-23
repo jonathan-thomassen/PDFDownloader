@@ -1,10 +1,18 @@
 """PDF validator module."""
 
 
+from dataclasses import dataclass
 from pathlib import Path
 import csv
 import hashlib
 import re
+
+
+@dataclass()
+class ValidatorConfig:
+    csv_path: Path
+    delimiter: str
+    quotechar: str
 
 
 def check_hash_match(pdf_hash: str, file: Path,
@@ -32,10 +40,10 @@ def check_hash_match(pdf_hash: str, file: Path,
     return (matching_filename, result)
 
 
-def read_hash_csv(csv_path, delimiter, quotechar) -> dict[str, str]:
-    with open(csv_path, newline="", encoding="utf-8") as csvfile:
-        csv_reader = csv.reader(csvfile, delimiter=delimiter,
-                                quotechar=quotechar)
+def read_hash_csv(config: ValidatorConfig) -> dict[str, str]:
+    with open(config.csv_path, newline="", encoding="utf-8") as csvfile:
+        csv_reader = csv.reader(csvfile, delimiter=config.delimiter,
+                                quotechar=config.quotechar)
         md5s = {}
         first_row = True
         for row in csv_reader:
@@ -51,7 +59,8 @@ def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
     if not pdf_dir.is_dir():
         raise SystemError("Path is not a directory.")
 
-    md5s = read_hash_csv(csv_path, delimiter, quotechar)
+    config = ValidatorConfig(csv_path, delimiter, quotechar)
+    md5s = read_hash_csv(config)
 
     path = Path(pdf_dir)
     files = [f for f in path.iterdir() if f.is_file()]
@@ -61,7 +70,8 @@ def validate_pdfs(csv_path: Path, pdf_dir: Path, delimiter: str = ",",
     for pdf_id, pdf_hash in md5s.items():
         files_matching_name: list[Path] = []
         for file in files:
-            matching_filename, result = check_hash_match(pdf_hash, file, pdf_id)
+            matching_filename, result = check_hash_match(
+                pdf_hash, file, pdf_id)
             if matching_filename:
                 files_matching_name.append(file)
                 if result:
